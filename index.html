@@ -1057,6 +1057,12 @@ function App(){
   const sync = useSyncManager();
   const T = THEMES[themeId];
 
+  // Tracks which state updates came FROM Firebase (not from user actions).
+  // When Firebase pushes data via onSnapshot, we mark the key here so the
+  // corresponding save useEffect skips the write — avoiding the save loop
+  // and the perpetual yellow "Salvando..." bar.
+  const fromRemote = useRef(new Set());
+
   useEffect(()=>{
     if(window.__firebase){setFbReady(true);return;}
     const h=()=>setFbReady(true);
@@ -1068,17 +1074,50 @@ function App(){
     if(!fbReady||!window.__firebase)return;
     sync.setConnecting();
     const fb=window.__firebase;
-    const u1=fb.subscribeList("contracts",it=>{setContracts(it);setLoaded(true);sync.setReady();});
-    const u2=fb.subscribeList("costs",it=>setCosts(it));
-    const u3=fb.subscribeList("manualPayments",it=>setManual(it));
-    const u4=fb.subscribeSetting("theme",v=>{if(v)setThemeId(v);});
+    const u1=fb.subscribeList("contracts",it=>{
+      fromRemote.current.add("c");
+      setContracts(it);
+      setLoaded(true);
+      sync.setReady();
+    });
+    const u2=fb.subscribeList("costs",it=>{
+      fromRemote.current.add("co");
+      setCosts(it);
+    });
+    const u3=fb.subscribeList("manualPayments",it=>{
+      fromRemote.current.add("mp");
+      setManual(it);
+    });
+    const u4=fb.subscribeSetting("theme",v=>{
+      if(v){ fromRemote.current.add("th"); setThemeId(v); }
+    });
     return()=>{u1();u2();u3();u4();};
   },[fbReady]);
 
-  useEffect(()=>{if(loaded)sync.schedule("c",()=>window.__firebase.saveList("contracts",contracts),"contratos");},[contracts]);
-  useEffect(()=>{if(loaded)sync.schedule("co",()=>window.__firebase.saveList("costs",costs),"custos");},[costs]);
-  useEffect(()=>{if(loaded)sync.schedule("mp",()=>window.__firebase.saveList("manualPayments",manual),"pagamentos");},[manual]);
-  useEffect(()=>{if(fbReady)sync.schedule("th",()=>window.__firebase.saveSetting("theme",themeId),"tema");},[themeId]);
+  // Each effect checks if the change came from Firebase; if so, skip the save.
+  useEffect(()=>{
+    if(fromRemote.current.has("c")){fromRemote.current.delete("c");return;}
+    if(!loaded||!window.__firebase)return;
+    sync.schedule("c",()=>window.__firebase.saveList("contracts",contracts),"contratos");
+  },[contracts]);
+
+  useEffect(()=>{
+    if(fromRemote.current.has("co")){fromRemote.current.delete("co");return;}
+    if(!loaded||!window.__firebase)return;
+    sync.schedule("co",()=>window.__firebase.saveList("costs",costs),"custos");
+  },[costs]);
+
+  useEffect(()=>{
+    if(fromRemote.current.has("mp")){fromRemote.current.delete("mp");return;}
+    if(!loaded||!window.__firebase)return;
+    sync.schedule("mp",()=>window.__firebase.saveList("manualPayments",manual),"pagamentos");
+  },[manual]);
+
+  useEffect(()=>{
+    if(fromRemote.current.has("th")){fromRemote.current.delete("th");return;}
+    if(!fbReady||!window.__firebase)return;
+    sync.schedule("th",()=>window.__firebase.saveSetting("theme",themeId),"tema");
+  },[themeId]);
 
   const SC={
     ok:     {bg:T.sOkBg, tx:T.sOkTx, dot:T.sOkDot},
