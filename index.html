@@ -1,13 +1,696 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LexControl — Gestão de Escritório</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LexControl — Gestão de Escritório</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <!-- React -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel (JSX in browser) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- mammoth (Word .docx) -->
+  <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc }
+                                      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    /* ════════════════════════════════════════════════════════
+       🔧 CONFIGURAÇÃO DO FIREBASE
+       Substitua os valores abaixo pelos do seu projeto Firebase.
+       Firebase Console → Configurações → Seus apps → firebaseConfig
+    ════════════════════════════════════════════════════════ */
+    const firebaseConfig = {
+      apiKey:            "AIzaSyCvJMW1uzGJKhwXVssssS6BqexM9dGRzVI",
+      authDomain:        "escritorio-ju.firebaseapp.com",
+      projectId:         "escritorio-ju",
+      storageBucket:     "escritorio-ju.firebasestorage.app",
+      messagingSenderId: "1063393810318",
+      appId:             "1:1063393810318:web:c7607356d4575a4df6b6df",
+    };
+
+    /* ════════════════════════════════════════════════════════
+       🏢 ID DO ESCRITÓRIO
+       Todos os dispositivos com o mesmo ID compartilham dados.
+       Use qualquer nome sem espaços, ex: "escritorio-silva"
+    ════════════════════════════════════════════════════════ */
+    const WORKSPACE_ID = "  meu-escritorio";
+
+    /* ════════════════════════════════════════════════════════
+       🤖 CHAVE DA API ANTHROPIC
+       Para análise automática de contratos via IA.
+       Obtenha em: https://console.anthropic.com
+    ════════════════════════════════════════════════════════ */
+    const ANTHROPIC_KEY = "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";
+
+    // ── inicializa Firebase ────────────────────────────────
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const wsDoc = (name) => doc(db, "workspaces", WORKSPACE_ID, "data", name);
+
+    window.__firebase = {
+      saveList:        (name, items) => setDoc(wsDoc(name), { items }, { merge: false }),
+      saveSetting:     (name, value) => setDoc(wsDoc(name), { value }, { merge: false }),
+      subscribeList:   (name, cb)    => onSnapshot(wsDoc(name), s => cb(s.exists() ? (s.data().items ?? []) : [])),
+      subscribeSetting:(name, cb)    => onSnapshot(wsDoc(name), s => { if(s.exists()) cb(s.data().value); }),
+      ANTHROPIC_KEY,
+    };
+
+    // sinaliza que o Firebase está pronto
+    window.dispatchEvent(new Event("firebase-ready"));
+  </script>
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;}
+    #root{height:100%;}
+    ::-webkit-scrollbar{width:6px;height:6px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--scroll-thumb,#243d5c);border-radius:3px;}
+    input,select,textarea{outline:none;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .spin{animation:spin .7s linear infinite;}
+    .row-hover:hover{background:var(--hover-row)!important;cursor:default;}
+    .btn-sm:hover{opacity:.75;cursor:pointer;}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* ══════════════════════════════════════════════════
+       THEMES
+    ══════════════════════════════════════════════════ */
+    const THEMES = {
+      dark: {
+        id:"dark", label:"🌙 Escuro",
+        bg:"#06101e", card:"#0c1828", card2:"#091422",
+        border:"#192c44", border2:"#243d5c",
+        text:"#c2d2e6", muted:"#4e6278", strong:"#daeaf8",
+        accent:"#d4b86a", accentText:"#06101e", accentDim:"#1c1508",
+        hover:"#112033", inp:"#091422",
+        dangerBg:"#270d0d", dangerText:"#f87171", dangerBorder:"#7f1d1d",
+        successBg:"#051e0f", successText:"#4ade80",
+        warnBg:"#27190a", warnText:"#fbbf24",
+        infoBg:"#081a34", infoText:"#60a5fa",
+        hdr:"#040c18", stripe:"#081322",
+        tabActive:"#d4b86a", tabActiveText:"#06101e",
+        scrollThumb:"#243d5c",
+      },
+      light: {
+        id:"light", label:"☀️ Claro",
+        bg:"#f0ebe0", card:"#fdfaf4", card2:"#f5f0e8",
+        border:"#d8cdb8", border2:"#b8a888",
+        text:"#241808", muted:"#7a6850", strong:"#100c04",
+        accent:"#8a6010", accentText:"#ffffff", accentDim:"#fdf5e0",
+        hover:"#ebe4d4", inp:"#f5f0e8",
+        dangerBg:"#fff3f3", dangerText:"#991c1c", dangerBorder:"#fca5a5",
+        successBg:"#ecfdf5", successText:"#166534",
+        warnBg:"#fffbeb", warnText:"#b45309",
+        infoBg:"#eff6ff", infoText:"#1e40af",
+        hdr:"#e4ddd0", stripe:"#f8f3ea",
+        tabActive:"#8a6010", tabActiveText:"#ffffff",
+        scrollThumb:"#b8a888",
+      },
+      industrial: {
+        id:"industrial", label:"🔩 Industrial",
+        bg:"#c5bdb0", card:"#d5cfc3", card2:"#cdc7ba",
+        border:"#a09890", border2:"#767068",
+        text:"#1a1410", muted:"#58504a", strong:"#0c0804",
+        accent:"#bf4e18", accentText:"#ffffff", accentDim:"#f2ddd4",
+        hover:"#beb8ac", inp:"#c8c2b6",
+        dangerBg:"#eedcdc", dangerText:"#7a1010", dangerBorder:"#cc9090",
+        successBg:"#d4ecd4", successText:"#185018",
+        warnBg:"#ece4c8", warnText:"#7a4808",
+        infoBg:"#d0e0ec", infoText:"#183060",
+        hdr:"#b4ada0", stripe:"#cfc9bc",
+        tabActive:"#bf4e18", tabActiveText:"#ffffff",
+        scrollThumb:"#767068",
+      },
+    };
+
+    /* ══════════════════════════════════════════════════
+       CONSTANTS
+    ══════════════════════════════════════════════════ */
+    const MFL = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+    const MFS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const COST_CATS = ["Aluguel","Energia","Internet","Telefone","Software","Pessoal","Contabilidade","Material de Escritório","Transporte","Outros"];
+    const STATUS_CFG = {
+      pendente:      {label:"Pendente",              icon:"⏳",color:"#f59e0b"},
+      em_pagamento:  {label:"Em Pagamento",           icon:"💳",color:"#3b82f6"},
+      pago:          {label:"Pago",                   icon:"✅",color:"#10b981"},
+      pago_pendente: {label:"Pago · Serviço Pendente",icon:"⚠️",color:"#a78bfa"},
+    };
+    const AI_PROMPT = `Você é especialista em contratos jurídicos brasileiros.
+Retorne SOMENTE JSON válido, sem texto extra:
+{"advogado":"","cliente":"","valorTotal":"8500.00","formaPagamento":"","totalParcelas":"3","valorParcela":"2833.33","prazos":"","observacoes":""}
+Se não encontrar, deixe como string vazia.`;
+
+    /* ══════════════════════════════════════════════════
+       HELPERS
+    ══════════════════════════════════════════════════ */
+    const genId  = () => Date.now() + Math.floor(Math.random()*10000);
+    const fmt    = v => { const n=parseFloat(String(v??0).replace(/[^\d.,-]/g,"").replace(",",".")); return isNaN(n)?(String(v)||"—"):n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); };
+    const fmtNum = v => parseFloat(String(v??0).replace(/[^\d.,-]/g,"").replace(",",".")) || 0;
+
+    /* ══════════════════════════════════════════════════
+       ATOMS
+    ══════════════════════════════════════════════════ */
+    const Btn = ({T,variant="primary",onClick,children,style={},disabled}) => {
+      const v = {primary:{background:T.accent,color:T.accentText},secondary:{background:T.border,color:T.text,fontWeight:400},danger:{background:T.dangerBg,color:T.dangerText,border:`1px solid ${T.dangerBorder}`},ghost:{background:"transparent",color:T.muted,border:`1px solid ${T.border2}`}};
+      return <button onClick={onClick} disabled={disabled} style={{border:"none",borderRadius:7,padding:"8px 18px",cursor:disabled?"not-allowed":"pointer",fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:600,opacity:disabled?.5:1,...v[variant],...style}}>{children}</button>;
+    };
+
+    const Fld = ({T,label,value,onChange,type="text",options,style={}}) => (
+      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+        <label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</label>
+        {options
+          ? <select value={value} onChange={e=>onChange(e.target.value)} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,...style}}>{options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}</select>
+          : type==="textarea"
+            ? <textarea value={value} onChange={e=>onChange(e.target.value)} rows={3} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,resize:"vertical",...style}}/>
+            : <input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,...style}}/>
+        }
+      </div>
+    );
+
+    const StatCard = ({T,label,value,color,sub}) => (
+      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:"14px 18px",flex:"1 1 110px",textAlign:"center"}}>
+        <div style={{fontSize:26,fontWeight:700,color:color??T.accent,fontFamily:"'Cormorant Garamond',serif",lineHeight:1}}>{value}</div>
+        {sub&&<div style={{fontSize:12,color:color??T.accent,fontWeight:600,marginTop:2}}>{sub}</div>}
+        <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:4}}>{label}</div>
+      </div>
+    );
+
+    const Modal = ({T,title,subtitle,onClose,children,footer,width=680}) => (
+      <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"#00000088",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}}>
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,width:"100%",maxWidth:width,maxHeight:"92vh",display:"flex",flexDirection:"column",boxShadow:"0 30px 90px #0009"}}>
+          <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>{title}</div>
+              {subtitle&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>{subtitle}</div>}
+            </div>
+            <button onClick={onClose} style={{background:"none",border:"none",color:T.muted,fontSize:20,cursor:"pointer"}}>✕</button>
+          </div>
+          <div style={{overflowY:"auto",flex:1,padding:"20px 24px"}}>{children}</div>
+          {footer&&<div style={{padding:"14px 24px",borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"flex-end",gap:10}}>{footer}</div>}
+        </div>
+      </div>
+    );
+
+    /* ══════════════════════════════════════════════════
+       TAB: CONTRATOS
+    ══════════════════════════════════════════════════ */
+    function ContractsTab({T,contracts,setContracts}) {
+      const [loading,setLoading]=useState(false);
+      const [loadMsg,setLoadMsg]=useState("");
+      const [error,setError]=useState("");
+      const [drag,setDrag]=useState(false);
+      const [modal,setModal]=useState(null);
+      const [editMode,setEditMode]=useState(false);
+      const [editData,setEditData]=useState({});
+      const [newAdv,setNewAdv]=useState({nome:"",percentual:""});
+      const [newSched,setNewSched]=useState({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});
+      const fileRef=useRef();
+
+      async function processFile(file) {
+        setError(""); setLoading(true); setLoadMsg("Lendo arquivo...");
+        try {
+          const isPdf = file.type==="application/pdf";
+          const isDocx= file.name.toLowerCase().endsWith(".docx");
+          if(!isPdf&&!isDocx) throw new Error("Use PDF ou .docx");
+
+          let messages;
+          if(isPdf){
+            setLoadMsg("Enviando para análise IA...");
+            const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=()=>rej();r.readAsDataURL(file);});
+            messages=[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},{type:"text",text:AI_PROMPT}]}];
+          } else {
+            setLoadMsg("Extraindo texto do Word...");
+            const text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=async e=>{try{res((await mammoth.extractRawText({arrayBuffer:e.target.result})).value);}catch(err){rej(err);}};r.onerror=()=>rej();r.readAsArrayBuffer(file);});
+            messages=[{role:"user",content:`${AI_PROMPT}\n\n---\n${text}`}];
+          }
+
+          setLoadMsg("IA analisando contrato...");
+          const res=await fetch("https://api.anthropic.com/v1/messages",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","x-api-key":window.__firebase.ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+            body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,messages}),
+          });
+          const data=await res.json();
+          const txt=data.content?.find(b=>b.type==="text")?.text??"{}";
+          const p=JSON.parse(txt.replace(/```json|```/g,"").trim());
+          setContracts(prev=>[{id:genId(),nomeArquivo:file.name,advogado:p.advogado||"",cliente:p.cliente||"",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||"",status:"pendente",dataUpload:new Date().toLocaleDateString("pt-BR"),coAdvogados:[],schedule:[]},...prev]);
+        } catch(e){setError(e.message||"Erro ao processar.");}
+        finally{setLoading(false);setLoadMsg("");}
+      }
+
+      function openModal(c){setModal(c);setEditData({...c});setEditMode(false);setNewAdv({nome:"",percentual:""});setNewSched({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
+      function saveEdit(){setContracts(p=>p.map(c=>c.id===editData.id?{...editData}:c));setModal({...editData});setEditMode(false);}
+      function updateStatus(id,status){setContracts(p=>p.map(c=>c.id===id?{...c,status}:c));if(modal?.id===id)setModal(s=>({...s,status}));}
+      function delContract(id){if(!confirm("Remover contrato?"))return;setContracts(p=>p.filter(c=>c.id!==id));setModal(null);}
+      function addCoAdv(){if(!newAdv.nome||!newAdv.percentual)return;setEditData(d=>({...d,coAdvogados:[...(d.coAdvogados||[]),{id:genId(),...newAdv}]}));setNewAdv({nome:"",percentual:""});}
+      function remCoAdv(id){setEditData(d=>({...d,coAdvogados:d.coAdvogados.filter(a=>a.id!==id)}));}
+      function addSched(){if(!newSched.valor)return;setEditData(d=>({...d,schedule:[...(d.schedule||[]),{id:genId(),...newSched,valor:fmtNum(newSched.valor)}]}));setNewSched({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
+      function togSched(sid){setEditData(d=>({...d,schedule:d.schedule.map(s=>s.id===sid?{...s,pago:!s.pago}:s)}));}
+      function remSched(sid){setEditData(d=>({...d,schedule:d.schedule.filter(s=>s.id!==sid)}));}
+
+      const totalVal=contracts.reduce((s,c)=>s+fmtNum(c.valorTotal),0);
+
+      return (
+        <div>
+          <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+            <StatCard T={T} label="Contratos"    value={contracts.length}/>
+            <StatCard T={T} label="Pendentes"    value={contracts.filter(c=>c.status==="pendente").length} color="#f59e0b"/>
+            <StatCard T={T} label="Em Pagamento" value={contracts.filter(c=>c.status==="em_pagamento").length} color="#3b82f6"/>
+            <StatCard T={T} label="Quitados"     value={contracts.filter(c=>c.status==="pago"||c.status==="pago_pendente").length} color="#10b981"/>
+            <StatCard T={T} label="Carteira Total" sub={fmt(totalVal)} value=""/>
+          </div>
+
+          {/* upload */}
+          <div onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)}
+            onDrop={e=>{e.preventDefault();setDrag(false);const f=e.dataTransfer.files?.[0];if(f)processFile(f);}}
+            onClick={()=>!loading&&fileRef.current?.click()}
+            style={{border:`2px dashed ${drag?T.accent:T.border2}`,background:drag?T.accentDim:T.card2,borderRadius:12,padding:26,textAlign:"center",cursor:loading?"wait":"pointer",marginBottom:16,minHeight:96,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",transition:"all .2s"}}>
+            <input ref={fileRef} type="file" accept=".pdf,.docx" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)processFile(f);e.target.value="";}}/>
+            {loading
+              ? <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}><div className="spin" style={{width:26,height:26,border:`3px solid ${T.border2}`,borderTopColor:T.accent,borderRadius:"50%"}}/><span style={{color:T.muted,fontSize:12}}>{loadMsg}</span></div>
+              : <><div style={{fontSize:26,marginBottom:6}}>📄</div><div style={{color:T.text,fontWeight:500,fontSize:14}}>Enviar Contrato</div><div style={{color:T.muted,fontSize:11,marginTop:3}}>Clique ou arraste — PDF ou Word (.docx)</div></>}
+          </div>
+
+          {error&&<div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.dangerText,borderRadius:8,padding:"9px 14px",marginBottom:14,fontSize:12}}>⚠ {error}</div>}
+
+          {contracts.length===0
+            ? <div style={{textAlign:"center",color:T.muted,padding:"60px 0",fontSize:13}}>Nenhum contrato. Envie o primeiro acima.</div>
+            : <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${T.border}`}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:T.card2}}>{["Arquivo","Advogado","Cliente","Valor","Pgto","Parcelas","Status","Data",""].map(h=><th key={h} style={{padding:"9px 13px",textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {contracts.map((c,i)=>{
+                    const st=STATUS_CFG[c.status]||STATUS_CFG.pendente;
+                    return (
+                      <tr key={c.id} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
+                        <td style={{padding:"10px 13px",fontSize:11,color:T.muted,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={c.nomeArquivo}>{c.nomeArquivo||"—"}</td>
+                        <td style={{padding:"10px 13px"}}><div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{background:T.infoBg,color:T.infoText,borderRadius:4,padding:"2px 8px",fontSize:12,whiteSpace:"nowrap"}}>{c.advogado||"—"}</span>{(c.coAdvogados||[]).length>0&&<span style={{background:T.warnBg,color:T.warnText,borderRadius:10,padding:"1px 6px",fontSize:10}}>+{c.coAdvogados.length}</span>}</div></td>
+                        <td style={{padding:"10px 13px"}}>{c.cliente||"—"}</td>
+                        <td style={{padding:"10px 13px",color:T.accent,fontWeight:700}}>{fmt(c.valorTotal)}</td>
+                        <td style={{padding:"10px 13px",color:T.muted,fontSize:12}}>{c.formaPagamento||"—"}</td>
+                        <td style={{padding:"10px 13px",color:T.muted,fontSize:12}}>{c.totalParcelas>1?`${c.totalParcelas}× ${fmt(c.valorParcela)}`:"À vista"}</td>
+                        <td style={{padding:"10px 13px"}}>
+                          <select value={c.status} onChange={e=>updateStatus(c.id,e.target.value)} style={{background:T.card2,color:st.color,border:`1px solid ${st.color}55`,borderRadius:6,padding:"3px 8px",fontSize:11,fontFamily:"'DM Mono',monospace",cursor:"pointer",appearance:"none"}}>
+                            {Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:"10px 13px",color:T.muted,fontSize:11,whiteSpace:"nowrap"}}>{c.dataUpload}</td>
+                        <td style={{padding:"10px 13px"}}><div style={{display:"flex",gap:5}}>
+                          <button className="btn-sm" onClick={()=>openModal(c)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}>🔍</button>
+                          <button className="btn-sm" onClick={()=>delContract(c.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}>🗑</button>
+                        </div></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>}
+
+          {/* modal */}
+          {modal&&(
+            <Modal T={T} title={modal.cliente||"Contrato"} subtitle={modal.nomeArquivo} onClose={()=>setModal(null)} width={720}
+              footer={editMode
+                ?<><Btn T={T} variant="secondary" onClick={()=>{setEditMode(false);setEditData({...modal});}}>Cancelar</Btn><Btn T={T} onClick={saveEdit}>💾 Salvar</Btn></>
+                :<><Btn T={T} variant="danger" onClick={()=>delContract(modal.id)}>Remover</Btn><Btn T={T} onClick={()=>setEditMode(true)}>✏ Editar</Btn></>}>
+              {editMode?(
+                <div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+                    <Fld T={T} label="Advogado"        value={editData.advogado}       onChange={v=>setEditData(d=>({...d,advogado:v}))}/>
+                    <Fld T={T} label="Cliente"         value={editData.cliente}        onChange={v=>setEditData(d=>({...d,cliente:v}))}/>
+                    <Fld T={T} label="Valor Total"     value={editData.valorTotal}     onChange={v=>setEditData(d=>({...d,valorTotal:v}))}/>
+                    <Fld T={T} label="Forma Pgto"      value={editData.formaPagamento} onChange={v=>setEditData(d=>({...d,formaPagamento:v}))}/>
+                    <Fld T={T} label="Nº Parcelas"     value={editData.totalParcelas}  onChange={v=>setEditData(d=>({...d,totalParcelas:v}))} type="number"/>
+                    <Fld T={T} label="Valor Parcela"   value={editData.valorParcela}   onChange={v=>setEditData(d=>({...d,valorParcela:v}))}/>
+                    <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Prazos"      value={editData.prazos}      onChange={v=>setEditData(d=>({...d,prazos:v}))}/></div>
+                    <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Observações" value={editData.observacoes} onChange={v=>setEditData(d=>({...d,observacoes:v}))} type="textarea"/></div>
+                    <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Status" value={editData.status} onChange={v=>setEditData(d=>({...d,status:v}))} options={Object.entries(STATUS_CFG).map(([k,v])=>({value:k,label:`${v.icon} ${v.label}`}))}/></div>
+                  </div>
+
+                  {/* co-advogados */}
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Co-advogados / Divisão de Honorários</div>
+                    {(editData.coAdvogados||[]).map(a=>(
+                      <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,background:T.card2,borderRadius:7,padding:"7px 10px"}}>
+                        <span style={{flex:1,color:T.infoText}}>{a.nome}</span>
+                        <span style={{color:T.accent,fontWeight:600}}>{a.percentual}%</span>
+                        <span style={{color:T.muted,fontSize:11}}>{fmt(fmtNum(editData.valorTotal)*fmtNum(a.percentual)/100)}</span>
+                        <button className="btn-sm" onClick={()=>remCoAdv(a.id)} style={{background:"none",border:"none",color:T.dangerText,fontSize:14}}>✕</button>
+                      </div>
+                    ))}
+                    {(editData.coAdvogados||[]).length>0&&(
+                      <div style={{background:T.successBg,borderRadius:7,padding:"7px 10px",fontSize:12,color:T.successText,marginBottom:8}}>
+                        {editData.advogado||"Adv. Principal"}: {100-(editData.coAdvogados||[]).reduce((s,a)=>s+fmtNum(a.percentual),0)}% = {fmt(fmtNum(editData.valorTotal)*(100-(editData.coAdvogados||[]).reduce((s,a)=>s+fmtNum(a.percentual),0))/100)}
+                      </div>
+                    )}
+                    <div style={{display:"flex",gap:8}}>
+                      <input placeholder="Nome do co-advogado" value={newAdv.nome} onChange={e=>setNewAdv(d=>({...d,nome:e.target.value}))} style={{flex:1,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+                      <input placeholder="%" value={newAdv.percentual} onChange={e=>setNewAdv(d=>({...d,percentual:e.target.value}))} type="number" min="0" max="100" style={{width:70,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+                      <Btn T={T} variant="ghost" onClick={addCoAdv}>+ Adicionar</Btn>
+                    </div>
+                  </div>
+
+                  {/* cronograma */}
+                  <div>
+                    <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Cronograma de Pagamentos</div>
+                    {(editData.schedule||[]).map(s=>(
+                      <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,background:s.pago?T.successBg:T.card2,borderRadius:7,padding:"7px 10px"}}>
+                        <input type="checkbox" checked={s.pago} onChange={()=>togSched(s.id)} style={{cursor:"pointer"}}/>
+                        <span style={{color:T.muted,fontSize:11,minWidth:50}}>{MFS[s.mes-1]}/{s.ano}</span>
+                        <span style={{color:T.accent,fontWeight:600}}>{fmt(s.valor)}</span>
+                        <span style={{flex:1,color:T.muted,fontSize:11}}>{s.descricao}</span>
+                        <span style={{fontSize:11,color:s.pago?T.successText:T.warnText}}>{s.pago?"✅":"⏳"}</span>
+                        <button className="btn-sm" onClick={()=>remSched(s.id)} style={{background:"none",border:"none",color:T.muted,fontSize:13}}>✕</button>
+                      </div>
+                    ))}
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>
+                      <select value={newSched.mes} onChange={e=>setNewSched(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
+                      <input type="number" value={newSched.ano} onChange={e=>setNewSched(d=>({...d,ano:Number(e.target.value)}))} style={{width:80,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+                      <input placeholder="R$" value={newSched.valor} onChange={e=>setNewSched(d=>({...d,valor:e.target.value}))} style={{width:100,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+                      <input placeholder="Descrição" value={newSched.descricao} onChange={e=>setNewSched(d=>({...d,descricao:e.target.value}))} style={{flex:1,minWidth:140,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+                      <Btn T={T} variant="ghost" onClick={addSched}>+ Parcela</Btn>
+                    </div>
+                  </div>
+                </div>
+              ):(
+                <div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+                    {[["Advogado",modal.advogado],["Cliente",modal.cliente],["Valor Total",fmt(modal.valorTotal)],["Forma de Pgto",modal.formaPagamento],["Parcelas",modal.totalParcelas>1?`${modal.totalParcelas}× ${fmt(modal.valorParcela)}`:"À vista"],["Status",`${STATUS_CFG[modal.status]?.icon} ${STATUS_CFG[modal.status]?.label}`],["Prazos",modal.prazos||"—"],["Cadastrado",modal.dataUpload]].map(([l,v])=>(
+                      <div key={l} style={{background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`}}>
+                        <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>{l}</div>
+                        <div style={{color:T.strong,fontSize:13}}>{v||"—"}</div>
+                      </div>
+                    ))}
+                    {modal.observacoes&&<div style={{gridColumn:"1/-1",background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`}}><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>Observações</div><div style={{color:T.text,fontSize:12,whiteSpace:"pre-wrap"}}>{modal.observacoes}</div></div>}
+                  </div>
+                  {(modal.coAdvogados||[]).length>0&&(
+                    <div style={{marginBottom:16}}>
+                      <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Divisão de Honorários</div>
+                      <div style={{background:T.card2,borderRadius:8,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+                        {[{nome:modal.advogado||"Adv. Principal",percentual:100-(modal.coAdvogados||[]).reduce((s,a)=>s+fmtNum(a.percentual),0),principal:true},...(modal.coAdvogados||[])].map((a,i)=>(
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 13px",borderBottom:i<modal.coAdvogados.length?`1px solid ${T.border}`:"none"}}>
+                            <span style={{flex:1,color:a.principal?T.accent:T.infoText,fontWeight:a.principal?600:400}}>{a.nome}</span>
+                            <span style={{color:T.muted}}>{a.percentual}%</span>
+                            <span style={{color:T.accent,fontWeight:600}}>{fmt(fmtNum(modal.valorTotal)*fmtNum(a.percentual)/100)}</span>
+                            <div style={{width:60,height:4,background:T.border,borderRadius:2,overflow:"hidden"}}><div style={{width:`${Math.min(100,a.percentual)}%`,height:"100%",background:a.principal?T.accent:T.infoText}}/></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(modal.schedule||[]).length>0&&(
+                    <div>
+                      <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Cronograma</div>
+                      {modal.schedule.map(s=>(
+                        <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,background:s.pago?T.successBg:T.card2,borderRadius:7,padding:"8px 12px",border:`1px solid ${s.pago?T.successText+"33":T.border}`}}>
+                          <span style={{color:T.muted,fontSize:11,minWidth:52}}>{MFS[s.mes-1]}/{s.ano}</span>
+                          <span style={{color:T.accent,fontWeight:700}}>{fmt(s.valor)}</span>
+                          <span style={{flex:1,color:T.muted,fontSize:11}}>{s.descricao}</span>
+                          <span style={{fontSize:11,color:s.pago?T.successText:T.warnText,fontWeight:600}}>{s.pago?"✅ Pago":"⏳ Pendente"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Modal>
+          )}
+        </div>
+      );
+    }
+
+    /* ══════════════════════════════════════════════════
+       TAB: PAGAMENTOS
+    ══════════════════════════════════════════════════ */
+    function PaymentsTab({T,contracts,setContracts}) {
+      const now=new Date();
+      const [selMes,setSelMes]=useState(now.getMonth()+1);
+      const [selAno,setSelAno]=useState(now.getFullYear());
+      const entries=contracts.flatMap(c=>(c.schedule||[]).filter(s=>s.mes===selMes&&s.ano===selAno).map(s=>({...s,contrato:c})));
+      const totEsp=entries.reduce((s,e)=>s+fmtNum(e.valor),0);
+      const totRec=entries.filter(e=>e.pago).reduce((s,e)=>s+fmtNum(e.valor),0);
+      const noSched=contracts.filter(c=>c.status==="em_pagamento"&&!(c.schedule||[]).some(s=>s.mes===selMes&&s.ano===selAno));
+      const years=Array.from({length:6},(_,i)=>now.getFullYear()-2+i);
+      function togPago(cid,sid){setContracts(p=>p.map(c=>c.id===cid?{...c,schedule:c.schedule.map(s=>s.id===sid?{...s,pago:!s.pago}:s)}:c));}
+
+      return (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Pagamentos —</span>
+            <select value={selMes} onChange={e=>setSelMes(Number(e.target.value))} style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer"}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
+            <select value={selAno} onChange={e=>setSelAno(Number(e.target.value))} style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer"}}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select>
+            <div style={{flex:1}}/>
+            {[-1,1].map(dir=><Btn key={dir} T={T} variant="ghost" onClick={()=>{let m=selMes+dir,a=selAno;if(m<1){m=12;a--;}if(m>12){m=1;a++;}setSelMes(m);setSelAno(a);}} style={{padding:"6px 12px"}}>{dir===-1?"← Anterior":"Próximo →"}</Btn>)}
+          </div>
+          <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+            <StatCard T={T} label="Esperado" sub={fmt(totEsp)} value="" color={T.accent}/>
+            <StatCard T={T} label="Recebido" sub={fmt(totRec)} value="" color="#10b981"/>
+            <StatCard T={T} label="Pendente" sub={fmt(totEsp-totRec)} value="" color="#f59e0b"/>
+            <StatCard T={T} label="Lançamentos" value={entries.length}/>
+          </div>
+          {totEsp>0&&(
+            <div style={{marginBottom:20}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:T.muted,marginBottom:4}}><span>Progresso</span><span>{Math.round(totRec/totEsp*100)}%</span></div>
+              <div style={{height:8,background:T.border,borderRadius:4,overflow:"hidden"}}><div style={{width:`${Math.min(100,totRec/totEsp*100)}%`,height:"100%",background:T.accent,borderRadius:4,transition:"width .4s"}}/></div>
+            </div>
+          )}
+          {entries.length===0&&noSched.length===0
+            ? <div style={{textAlign:"center",color:T.muted,padding:"60px 0"}}><div style={{fontSize:32,marginBottom:12}}>📭</div>Nenhum pagamento em {MFL[selMes-1]} de {selAno}.</div>
+            : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {entries.map(e=>{
+                const c=e.contrato,coAdvs=c.coAdvogados||[],primPerc=100-coAdvs.reduce((s,a)=>s+fmtNum(a.percentual),0);
+                return (
+                  <div key={e.id} style={{background:e.pago?T.successBg:T.card,border:`1px solid ${e.pago?T.successText+"44":T.border}`,borderRadius:12,overflow:"hidden"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px"}}>
+                      <input type="checkbox" checked={e.pago} onChange={()=>togPago(c.id,e.id)} style={{width:18,height:18,cursor:"pointer",accentColor:T.accent}}/>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",gap:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,color:T.strong,fontWeight:600}}>{c.cliente}</span>
+                          <span style={{fontSize:11,color:T.muted}}>·</span>
+                          <span style={{fontSize:12,color:T.infoText}}>{c.advogado}</span>
+                          {e.descricao&&<span style={{fontSize:11,color:T.muted}}>{e.descricao}</span>}
+                        </div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{c.formaPagamento}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:20,fontWeight:700,color:T.accent,fontFamily:"'Cormorant Garamond',serif"}}>{fmt(e.valor)}</div>
+                        <div style={{fontSize:11,color:e.pago?T.successText:T.warnText,fontWeight:600}}>{e.pago?"✅ Recebido":"⏳ Aguardando"}</div>
+                      </div>
+                    </div>
+                    {coAdvs.length>0&&(
+                      <div style={{borderTop:`1px solid ${T.border}`,padding:"10px 18px",background:T.card2}}>
+                        <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Divisão Proporcional</div>
+                        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                          {[{nome:c.advogado||"Adv. Principal",percentual:primPerc},...coAdvs].map((a,i)=>(
+                            <div key={i} style={{background:T.card,borderRadius:8,padding:"8px 12px",border:`1px solid ${T.border}`,flex:"1 1 140px"}}>
+                              <div style={{fontSize:11,color:i===0?T.accent:T.infoText,fontWeight:600}}>{a.nome}</div>
+                              <div style={{fontSize:13,color:T.strong,fontWeight:700}}>{fmt(fmtNum(e.valor)*fmtNum(a.percentual)/100)}</div>
+                              <div style={{fontSize:10,color:T.muted}}>{a.percentual}%</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {noSched.length>0&&<div style={{background:T.warnBg,border:`1px solid ${T.warnText}44`,borderRadius:12,padding:"14px 18px"}}><div style={{fontSize:11,color:T.warnText,fontWeight:600,marginBottom:8}}>⚠ Contratos Em Pagamento sem parcela neste mês</div>{noSched.map(c=><div key={c.id} style={{fontSize:12,color:T.muted,marginBottom:4}}>· {c.cliente} — {fmt(c.valorTotal)}</div>)}</div>}
+            </div>}
+        </div>
+      );
+    }
+
+    /* ══════════════════════════════════════════════════
+       TAB: CUSTOS
+    ══════════════════════════════════════════════════ */
+    function CostsTab({T,costs,setCosts}) {
+      const now=new Date();
+      const [selMes,setSelMes]=useState(now.getMonth()+1);
+      const [selAno,setSelAno]=useState(now.getFullYear());
+      const [showForm,setShowForm]=useState(false);
+      const [form,setForm]=useState({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes:now.getMonth()+1,ano:now.getFullYear(),pago:false});
+      const [editId,setEditId]=useState(null);
+      const monthly=costs.filter(c=>c.mes===selMes&&c.ano===selAno);
+      const years=Array.from({length:6},(_,i)=>now.getFullYear()-2+i);
+      const totMes=monthly.reduce((s,c)=>s+fmtNum(c.valor),0);
+      const totPago=monthly.filter(c=>c.pago).reduce((s,c)=>s+fmtNum(c.valor),0);
+      const byCat=COST_CATS.map(cat=>({cat,total:monthly.filter(c=>c.categoria===cat).reduce((s,c)=>s+fmtNum(c.valor),0)})).filter(g=>g.total>0);
+
+      function saveCost(){
+        if(!form.descricao||!form.valor)return;
+        if(editId){setCosts(p=>p.map(c=>c.id===editId?{...form,id:editId,valor:fmtNum(form.valor)}:c));setEditId(null);}
+        else{
+          const base={...form,id:genId(),valor:fmtNum(form.valor)};
+          if(form.recorrente){const all=Array.from({length:12},(_,i)=>{let m=form.mes+i,a=form.ano;while(m>12){m-=12;a++;}return{...base,id:i===0?base.id:genId(),mes:m,ano:a};});setCosts(p=>[...p,...all]);}
+          else setCosts(p=>[...p,base]);
+        }
+        setForm({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes:selMes,ano:selAno,pago:false});
+        setShowForm(false);
+      }
+
+      return (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Custos —</span>
+            <select value={selMes} onChange={e=>setSelMes(Number(e.target.value))} style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer"}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
+            <select value={selAno} onChange={e=>setSelAno(Number(e.target.value))} style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer"}}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select>
+            <div style={{flex:1}}/>
+            <Btn T={T} onClick={()=>{setEditId(null);setForm({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes:selMes,ano:selAno,pago:false});setShowForm(true);}}>+ Novo Custo</Btn>
+          </div>
+          <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+            <StatCard T={T} label="Total" sub={fmt(totMes)} value="" color={T.accent}/>
+            <StatCard T={T} label="Pago"  sub={fmt(totPago)} value="" color="#10b981"/>
+            <StatCard T={T} label="A Pagar" sub={fmt(totMes-totPago)} value="" color="#f59e0b"/>
+            <StatCard T={T} label="Lançamentos" value={monthly.length}/>
+          </div>
+          {byCat.length>0&&<div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>{byCat.map(g=><div key={g.cat} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",flex:"1 1 100px",textAlign:"center"}}><div style={{fontSize:12,color:T.accent,fontWeight:700}}>{fmt(g.total)}</div><div style={{fontSize:10,color:T.muted,marginTop:2}}>{g.cat}</div></div>)}</div>}
+
+          {showForm&&(
+            <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:18}}>
+              <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"✏ Editar":"+ Novo Custo"}</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+                <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Descrição" value={form.descricao} onChange={v=>setForm(d=>({...d,descricao:v}))}/></div>
+                <Fld T={T} label="Categoria" value={form.categoria} onChange={v=>setForm(d=>({...d,categoria:v}))} options={COST_CATS}/>
+                <Fld T={T} label="Valor R$" value={form.valor} onChange={v=>setForm(d=>({...d,valor:v}))}/>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Mês</label><select value={form.mes} onChange={e=>setForm(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
+                <Fld T={T} label="Ano" value={form.ano} onChange={v=>setForm(d=>({...d,ano:Number(v)}))} type="number"/>
+              </div>
+              <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:14}}>
+                <label style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}><input type="checkbox" checked={form.pago} onChange={e=>setForm(d=>({...d,pago:e.target.checked}))} style={{accentColor:T.accent}}/> Já pago</label>
+                {!editId&&<label style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}><input type="checkbox" checked={form.recorrente} onChange={e=>setForm(d=>({...d,recorrente:e.target.checked}))} style={{accentColor:T.accent}}/> Recorrente (12 meses)</label>}
+              </div>
+              <div style={{display:"flex",gap:8}}><Btn T={T} variant="secondary" onClick={()=>setShowForm(false)}>Cancelar</Btn><Btn T={T} onClick={saveCost}>💾 Salvar</Btn></div>
+            </div>
+          )}
+
+          {monthly.length===0
+            ? <div style={{textAlign:"center",color:T.muted,padding:"60px 0"}}><div style={{fontSize:32,marginBottom:12}}>🏢</div>Nenhum custo em {MFL[selMes-1]} de {selAno}.</div>
+            : <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${T.border}`}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:T.card2}}>{["","Descrição","Categoria","Valor","Mês","Status",""].map(h=><th key={h} style={{padding:"9px 13px",textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,fontWeight:500}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {monthly.map((c,i)=>(
+                    <tr key={c.id} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
+                      <td style={{padding:"9px 13px"}}><input type="checkbox" checked={c.pago} onChange={()=>setCosts(p=>p.map(x=>x.id===c.id?{...x,pago:!x.pago}:x))} style={{cursor:"pointer",accentColor:T.accent}}/></td>
+                      <td style={{padding:"9px 13px",color:T.strong}}>{c.descricao}</td>
+                      <td style={{padding:"9px 13px"}}><span style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:4,padding:"2px 8px",fontSize:11,color:T.muted}}>{c.categoria}</span></td>
+                      <td style={{padding:"9px 13px",color:T.accent,fontWeight:700}}>{fmt(c.valor)}</td>
+                      <td style={{padding:"9px 13px",color:T.muted,fontSize:11}}>{MFS[c.mes-1]}/{c.ano}</td>
+                      <td style={{padding:"9px 13px"}}><span style={{fontSize:11,color:c.pago?T.successText:T.dangerText,fontWeight:600}}>{c.pago?"✅ Pago":"🔴 Pendente"}</span></td>
+                      <td style={{padding:"9px 13px"}}><div style={{display:"flex",gap:5}}>
+                        <button className="btn-sm" onClick={()=>{setForm({...c,valor:String(c.valor)});setEditId(c.id);setShowForm(true);}} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}>✏</button>
+                        <button className="btn-sm" onClick={()=>setCosts(p=>p.filter(x=>x.id!==c.id))} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}>🗑</button>
+                      </div></td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot><tr style={{background:T.card2,borderTop:`2px solid ${T.border2}`}}><td colSpan={3} style={{padding:"10px 13px",fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em"}}>Total</td><td style={{padding:"10px 13px",color:T.accent,fontWeight:700,fontSize:14}}>{fmt(totMes)}</td><td colSpan={3} style={{padding:"10px 13px",fontSize:11,color:T.muted}}>Pago: {fmt(totPago)} · A pagar: {fmt(totMes-totPago)}</td></tr></tfoot>
+              </table>
+            </div>}
+        </div>
+      );
+    }
+
+    /* ══════════════════════════════════════════════════
+       APP PRINCIPAL
+    ══════════════════════════════════════════════════ */
+    function App() {
+      const [themeId,setThemeId]=useState("dark");
+      const [tab,setTab]=useState("contratos");
+      const [contracts,setContracts]=useState([]);
+      const [costs,setCosts]=useState([]);
+      const [loaded,setLoaded]=useState(false);
+      const [fbReady,setFbReady]=useState(!!window.__firebase);
+      const [syncing,setSyncing]=useState(false);
+      const [syncErr,setSyncErr]=useState("");
+      const timers=useRef({});
+      const T=THEMES[themeId];
+
+      // aguarda Firebase inicializar
+      useEffect(()=>{
+        if(window.__firebase){setFbReady(true);return;}
+        const h=()=>setFbReady(true);
+        window.addEventListener("firebase-ready",h);
+        return ()=>window.removeEventListener("firebase-ready",h);
+      },[]);
+
+      // subscriptions
+      useEffect(()=>{
+        if(!fbReady||!window.__firebase)return;
+        const fb=window.__firebase;
+        const u1=fb.subscribeList("contracts",items=>{setContracts(items);setLoaded(true);});
+        const u2=fb.subscribeList("costs",items=>setCosts(items));
+        const u3=fb.subscribeSetting("theme",v=>{if(v)setThemeId(v);});
+        return ()=>{u1();u2();u3();};
+      },[fbReady]);
+
+      // debounced save
+      function debSave(key,fn){
+        clearTimeout(timers.current[key]);
+        timers.current[key]=setTimeout(async()=>{
+          if(!window.__firebase)return;
+          setSyncing(true);
+          try{await fn();}catch(e){setSyncErr("Erro ao sincronizar: "+e.message);}
+          finally{setSyncing(false);}
+        },800);
+      }
+      useEffect(()=>{if(loaded)debSave("c",()=>window.__firebase.saveList("contracts",contracts));},[contracts]);
+      useEffect(()=>{if(loaded)debSave("co",()=>window.__firebase.saveList("costs",costs));},[costs]);
+      useEffect(()=>{if(fbReady)debSave("th",()=>window.__firebase.saveSetting("theme",themeId));},[themeId]);
+
+      const TABS=[{id:"contratos",label:"📄 Contratos"},{id:"pagamentos",label:"💰 Pagamentos"},{id:"custos",label:"🏢 Custos Operacionais"}];
+
+      return (
+        <div style={{background:T.bg,minHeight:"100vh",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:13}}>
+          <style>{`.row-hover:hover{background:${T.hover}!important;} ::-webkit-scrollbar-thumb{background:${T.scrollThumb}!important;}`}</style>
+
+          {/* header */}
+          <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"13px 24px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",position:"sticky",top:0,zIndex:100}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginRight:8}}>
+              <span style={{fontSize:26,filter:`drop-shadow(0 0 10px ${T.accent}88)`}}>⚖️</span>
+              <div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:T.accent,lineHeight:1}}>LexControl</div>
+                <div style={{fontSize:9,color:T.muted,textTransform:"uppercase",letterSpacing:"0.12em"}}>Gestão de Escritório</div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:3,background:T.card2,borderRadius:10,padding:3,border:`1px solid ${T.border}`}}>
+              {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="btn-sm" style={{background:tab===t.id?T.tabActive:"transparent",color:tab===t.id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"6px 14px",fontSize:12,fontFamily:"'DM Mono',monospace",fontWeight:tab===t.id?600:400,transition:"all .18s",whiteSpace:"nowrap"}}>{t.label}</button>)}
+            </div>
+            <div style={{flex:1}}/>
+            {syncing&&<span style={{fontSize:10,color:T.muted,display:"flex",alignItems:"center",gap:5}}><span className="spin" style={{display:"inline-block",width:10,height:10,border:`2px solid ${T.border2}`,borderTopColor:T.accent,borderRadius:"50%"}}/>Sincronizando...</span>}
+            <div style={{display:"flex",gap:4}}>
+              {Object.values(THEMES).map(th=><button key={th.id} onClick={()=>setThemeId(th.id)} className="btn-sm" style={{background:themeId===th.id?T.accent:T.card2,color:themeId===th.id?T.accentText:T.muted,border:`1px solid ${T.border}`,borderRadius:7,padding:"5px 10px",fontSize:11,fontFamily:"'DM Mono',monospace",whiteSpace:"nowrap"}}>{th.label}</button>)}
+            </div>
+          </div>
+
+          {syncErr&&<div style={{background:T.dangerBg,borderBottom:`1px solid ${T.dangerBorder}`,color:T.dangerText,padding:"8px 24px",fontSize:12,display:"flex",justifyContent:"space-between"}}><span>⚠ {syncErr}</span><button onClick={()=>setSyncErr("")} style={{background:"none",border:"none",color:T.dangerText,cursor:"pointer"}}>✕</button></div>}
+
+          <div style={{padding:"22px 24px",maxWidth:1200,margin:"0 auto"}}>
+            {!loaded
+              ? <div style={{textAlign:"center",padding:"80px 0",color:T.muted,display:"flex",flexDirection:"column",alignItems:"center",gap:14}}><div className="spin" style={{width:32,height:32,border:`3px solid ${T.border2}`,borderTopColor:T.accent,borderRadius:"50%"}}/>Conectando ao Firebase...</div>
+              : tab==="contratos"  ? <ContractsTab T={T} contracts={contracts} setContracts={setContracts}/>
+              : tab==="pagamentos" ? <PaymentsTab  T={T} contracts={contracts} setContracts={setContracts}/>
+              : <CostsTab T={T} costs={costs} setCosts={setCosts}/>
+            }
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
 </html>
