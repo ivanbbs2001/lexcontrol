@@ -11,14 +11,15 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script type="module">
-    import { initializeApp }     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, doc, onSnapshot, setDoc }
-                                 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  <!-- Firebase Compat SDK — carregado como script normal, sem módulos ES -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
     /* ════════════════════════════════════════════
        🔧 FIREBASE — preencha com seus valores
+       Firebase Console → Configurações → Seus apps
     ════════════════════════════════════════════ */
-    const firebaseConfig = {
+    var FIREBASE_CONFIG = {
       apiKey:            "COLE_AQUI_apiKey",
       authDomain:        "COLE_AQUI_authDomain",
       projectId:         "COLE_AQUI_projectId",
@@ -27,25 +28,19 @@
       appId:             "COLE_AQUI_appId",
     };
     /* ════════════════════════════════════════════
-       🏢 ID DO ESCRITÓRIO
+       🏢 ID DO ESCRITÓRIO  (mesmo valor em todos
+       os dispositivos = dados compartilhados)
     ════════════════════════════════════════════ */
-    const WORKSPACE_ID = "meu-escritorio";
+    var WORKSPACE_ID = "meu-escritorio";
     /* ════════════════════════════════════════════
        🤖 CHAVE ANTHROPIC  console.anthropic.com
     ════════════════════════════════════════════ */
-    const ANTHROPIC_KEY = "COLE_AQUI_sk-ant-...";
+    var ANTHROPIC_KEY = "COLE_AQUI_sk-ant-...";
 
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
-    const wsDoc = n => doc(db,"workspaces",WORKSPACE_ID,"data",n);
-    window.__firebase = {
-      saveList:         (n,it) => setDoc(wsDoc(n),{items:it},{merge:false}),
-      saveSetting:      (n,v)  => setDoc(wsDoc(n),{value:v},{merge:false}),
-      subscribeList:    (n,cb) => onSnapshot(wsDoc(n),s=>cb(s.exists()?(s.data().items??[]):[])),
-      subscribeSetting: (n,cb) => onSnapshot(wsDoc(n),s=>{if(s.exists())cb(s.data().value);}),
-      ANTHROPIC_KEY,
-    };
-    window.dispatchEvent(new Event("firebase-ready"));
+    firebase.initializeApp(FIREBASE_CONFIG);
+    window.db  = firebase.firestore();
+    window.WS  = WORKSPACE_ID;
+    window.ANT = ANTHROPIC_KEY;
   </script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
@@ -67,7 +62,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel" data-presets="react">
-const {useState,useEffect,useRef,useCallback}=React;
+const {useState,useEffect,useRef}=React;
 
 /* ═══════════════════════════════════════════════════════
    THEMES
@@ -155,41 +150,6 @@ const newC=()=>({id:null,nomeArquivo:"",advogado:ADV_PRINCIPAL,cliente:"",telefo
 const newP=()=>({id:null,cliente:"",advogado:ADV_PRINCIPAL,telefone:"",numeroProcesso:"",areaAtuacao:"Cível",descricao:"",valor:"",mes:new Date().getMonth()+1,ano:new Date().getFullYear(),formaPagamento:"PIX",pago:false,dataLancamento:new Date().toLocaleDateString("pt-BR")});
 
 /* ═══════════════════════════════════════════════════════
-   SYNC MANAGER  — single source of truth for sync state
-═══════════════════════════════════════════════════════ */
-function useSyncManager(){
-  const [state,setState]=useState("offline");
-  const [msg,setMsg]=useState("Aguardando Firebase...");
-  const pending=useRef(new Set());
-  const timers=useRef({});
-
-  const schedule=useCallback((key,fn,label)=>{
-    clearTimeout(timers.current[key]);
-    timers.current[key]=setTimeout(async()=>{
-      if(!window.__firebase)return;
-      pending.current.add(key);
-      setState("syncing");setMsg(`Salvando ${label}...`);
-      try{
-        await fn();
-        pending.current.delete(key);
-        if(pending.current.size===0){
-          setState("ok");
-          setMsg("Sincronizado · "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));
-        }
-      }catch(e){
-        pending.current.delete(key);
-        setState("error");setMsg("Erro: "+e.message);
-      }
-    },900);
-  },[]);
-
-  const setConnecting=useCallback(()=>{setState("syncing");setMsg("Conectando ao Firebase...");},[]);
-  const setReady=useCallback(()=>{setState("ok");setMsg("Sincronizado · "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));},[]);
-  const clearError=useCallback(()=>{setState("offline");setMsg("—");},[]);
-
-  return{state,msg,schedule,setConnecting,setReady,clearError};
-}
-
 /* ═══════════════════════════════════════════════════════
    ATOMS
 ═══════════════════════════════════════════════════════ */
@@ -326,7 +286,7 @@ function TabContratos({T,contracts,setContracts}){
       if(isPdf){setLoadMsg("Enviando para IA...");const b64=await new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result.split(",")[1]);x.onerror=j;x.readAsDataURL(file);});messages=[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},{type:"text",text:AI_PROMPT}]}];}
       else{setLoadMsg("Extraindo Word...");const text=await new Promise((r,j)=>{const x=new FileReader();x.onload=async e=>{try{r((await mammoth.extractRawText({arrayBuffer:e.target.result})).value);}catch(err){j(err);}};x.onerror=j;x.readAsArrayBuffer(file);});messages=[{role:"user",content:`${AI_PROMPT}\n\n---\n${text}`}];}
       setLoadMsg("IA analisando...");
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.__firebase.ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,messages})});
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.ANT,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,messages})});
       const data=await res.json();const txt=data.content?.find(b=>b.type==="text")?.text??"{}";
       const p=JSON.parse(txt.replace(/```json|```/g,"").trim());
       setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:p.advogado||ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||""},...prev]);
@@ -1044,7 +1004,10 @@ function TabClientes({T,contracts,manual,setTab}){
 }
 
 /* ═══════════════════════════════════════════════════════
-   APP PRINCIPAL
+   APP PRINCIPAL — sync igual ao dieta-app
+   • Firebase Compat SDK (sem módulos, sem bridge)
+   • 1 documento Firestore guarda tudo
+   • Debounce 1.5s + flag para evitar loop de onSnapshot
 ═══════════════════════════════════════════════════════ */
 function App(){
   const [themeId,setThemeId]     = useState("industrial");
@@ -1052,74 +1015,80 @@ function App(){
   const [contracts,setContracts] = useState([]);
   const [costs,setCosts]         = useState([]);
   const [manual,setManual]       = useState([]);
-  const [loaded,setLoaded]       = useState(false);
-  const [fbReady,setFbReady]     = useState(!!window.__firebase);
-  // Sync state
-  const [dirty,setDirty]         = useState(false);
-  const [saving,setSaving]       = useState(false);
-  const [savedAt,setSavedAt]     = useState(null);
-  const [syncErr,setSyncErr]     = useState("");
-  // fbRef stores the exact array reference last received from Firebase.
-  // If local state === fbRef → change came from Firebase → don't mark dirty.
-  const fbRef = useRef({c:null,co:null,mp:null});
+  // Sync state (igual dieta-app)
+  const [fbLoaded,setFbLoaded]   = useState(false);
+  const [fbSaving,setFbSaving]   = useState(false);
+  const [fbError,setFbError]     = useState("");
+  const [fbSavedAt,setFbSavedAt] = useState(null);
+  // Flag: quando onSnapshot carrega dados, não disparar save
+  const loadingFromFb = useRef(false);
+  const saveTimer     = useRef(null);
   const T = THEMES[themeId];
 
+  /* ── Carrega dados do Firestore em tempo real ── */
   useEffect(()=>{
-    if(window.__firebase){setFbReady(true);return;}
-    const h=()=>setFbReady(true);
-    window.addEventListener("firebase-ready",h);
-    return()=>window.removeEventListener("firebase-ready",h);
+    if(!window.db) return;
+    const docRef = window.db.doc("workspaces/"+window.WS);
+    const unsub = docRef.onSnapshot(
+      snap => {
+        loadingFromFb.current = true;          // sinaliza: veio do Firebase
+        if(snap.exists()){
+          const d = snap.data();
+          if(d.contracts)  setContracts(d.contracts);
+          if(d.costs)      setCosts(d.costs);
+          if(d.manual)     setManual(d.manual);
+          if(d.theme)      setThemeId(d.theme);
+        }
+        setFbLoaded(true);
+      },
+      err => { setFbError(err.message); setFbLoaded(true); }
+    );
+    return ()=>unsub();
   },[]);
 
+  /* ── Salva com debounce (1.5s) ──────────────────
+     Padrão idêntico ao dieta-app:
+     - Se `loadingFromFb` está ativo → dados vieram
+       do Firestore → pula o save (reset flag e volta).
+     - Caso contrário → usuário editou → salva após 1.5s.
+  ── */
   useEffect(()=>{
-    if(!fbReady||!window.__firebase)return;
-    const fb=window.__firebase;
-    const u1=fb.subscribeList("contracts",it=>{ fbRef.current.c=it; setContracts(it); setLoaded(true); });
-    const u2=fb.subscribeList("costs",it=>{ fbRef.current.co=it; setCosts(it); });
-    const u3=fb.subscribeList("manualPayments",it=>{ fbRef.current.mp=it; setManual(it); });
-    const u4=fb.subscribeSetting("theme",v=>{ if(v) setThemeId(v); });
-    return()=>{u1();u2();u3();u4();};
-  },[fbReady]);
+    if(!fbLoaded || !window.db) return;
 
-  // Only track dirty — never auto-save. Reference equality: if same object as Firebase sent, skip.
-  useEffect(()=>{ if(loaded&&contracts!==fbRef.current.c) setDirty(true); },[contracts]);
-  useEffect(()=>{ if(loaded&&costs!==fbRef.current.co)    setDirty(true); },[costs]);
-  useEffect(()=>{ if(loaded&&manual!==fbRef.current.mp)   setDirty(true); },[manual]);
-
-  // Theme: lightweight, auto-save is fine (no loop risk — no array involved)
-  useEffect(()=>{
-    if(fbReady&&window.__firebase) window.__firebase.saveSetting("theme",themeId).catch(()=>{});
-  },[themeId]);
-
-  // Manual save — user clicks the button
-  async function saveAll(){
-    if(!window.__firebase||saving)return;
-    setSaving(true); setSyncErr("");
-    try{
-      await Promise.all([
-        window.__firebase.saveList("contracts",contracts),
-        window.__firebase.saveList("costs",costs),
-        window.__firebase.saveList("manualPayments",manual),
-      ]);
-      setDirty(false);
-      setSavedAt(new Date());
-    }catch(e){
-      setSyncErr(e.message||"Erro ao salvar");
-    }finally{
-      setSaving(false);
+    // Veio do Firebase? Pula e reseta a flag.
+    if(loadingFromFb.current){
+      loadingFromFb.current = false;
+      return;
     }
-  }
 
-  // Sync bar appearance
-  const syncBar = syncErr
-    ? {bg:"#270d0d",tx:"#f87171",dot:"#ef4444",dotPulse:false,msg:"⚠ "+syncErr}
-    : saving
-    ? {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,dotPulse:true,msg:"Salvando..."}
-    : dirty
-    ? {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,dotPulse:false,msg:"● Alterações não salvas"}
-    : savedAt
-    ? {bg:T.sOkBg,tx:T.sOkTx,dot:T.sOkDot,dotPulse:false,msg:"✔ Sincronizado · "+savedAt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
-    : {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,dotPulse:false,msg:"Aguardando Firebase..."};
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async ()=>{
+      setFbSaving(true);
+      setFbError("");
+      try{
+        await window.db.doc("workspaces/"+window.WS).set(
+          { contracts, costs, manual, theme:themeId },
+          { merge: false }
+        );
+        setFbSaving(false);
+        setFbSavedAt(new Date());
+      }catch(e){
+        setFbSaving(false);
+        setFbError(e.message||"Erro ao salvar");
+      }
+    }, 1500);
+  },[contracts, costs, manual, themeId, fbLoaded]);
+
+  /* ── Barra de sync ── */
+  const syncBar = !fbLoaded
+    ? {bg:"#1a1a0a",tx:"#f59e0b",dot:"#f59e0b",pulse:true, msg:"Conectando ao Firebase..."}
+    : fbError
+    ? {bg:"#270d0d",tx:"#f87171",dot:"#ef4444",pulse:false,msg:"⚠ "+fbError}
+    : fbSaving
+    ? {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,pulse:true, msg:"Salvando..."}
+    : fbSavedAt
+    ? {bg:T.sOkBg,  tx:T.sOkTx,  dot:T.sOkDot, pulse:false,msg:"✔ Sincronizado · "+fbSavedAt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+    : {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,pulse:false,msg:"Aguardando..."};
 
   const TABS=[
     {id:"contratos",label:"📄 Contratos"},
@@ -1133,28 +1102,15 @@ function App(){
     <div style={{background:T.bg,minHeight:"100vh",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:13}}>
       <style>{`.row-hover:hover{background:${T.hover}!important;}`}</style>
 
-      {/* ── BARRA DE SYNC ── */}
-      <div style={{background:syncBar.bg,borderBottom:`1px solid ${syncBar.dot}44`,padding:"5px 16px",display:"flex",alignItems:"center",gap:10,minHeight:30,position:"sticky",top:0,zIndex:101}}>
-        <span className={`sync-dot${syncBar.dotPulse?" pulsing":""}`} style={{background:syncBar.dot}}/>
+      {/* ── BARRA SYNC ── */}
+      <div style={{background:syncBar.bg,borderBottom:`1px solid ${syncBar.dot}44`,padding:"5px 20px",display:"flex",alignItems:"center",gap:8,minHeight:28,position:"sticky",top:0,zIndex:101}}>
+        <span className={`sync-dot${syncBar.pulse?" pulsing":""}`} style={{background:syncBar.dot}}/>
         <span style={{fontSize:11,color:syncBar.tx,fontWeight:500,flex:1}}>{syncBar.msg}</span>
-        {/* Botão salvar — aparece quando há alterações ou erro */}
-        {(dirty||syncErr)&&!saving&&(
-          <button onClick={saveAll}
-            style={{background:T.accent,color:T.accentText,border:"none",borderRadius:7,padding:"4px 14px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'DM Mono',monospace",display:"flex",alignItems:"center",gap:6}}>
-            💾 Salvar agora
-          </button>
-        )}
-        {saving&&(
-          <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:syncBar.tx}}>
-            <div className="spin" style={{width:12,height:12,border:`2px solid ${syncBar.dot}44`,borderTopColor:syncBar.dot,borderRadius:"50%"}}/>
-            Salvando...
-          </div>
-        )}
-        {syncErr&&<button onClick={()=>setSyncErr("")} style={{background:"none",border:`1px solid ${syncBar.dot}`,borderRadius:5,padding:"2px 8px",fontSize:10,color:syncBar.tx,cursor:"pointer"}}>✕</button>}
+        {fbError&&<button onClick={()=>setFbError("")} style={{background:"none",border:`1px solid ${syncBar.dot}`,borderRadius:5,padding:"2px 8px",fontSize:10,color:syncBar.tx,cursor:"pointer"}}>✕</button>}
       </div>
 
       {/* ── HEADER ── */}
-      <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"11px 22px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",position:"sticky",top:30,zIndex:99}}>
+      <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"11px 22px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",position:"sticky",top:28,zIndex:99}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginRight:8}}>
           <span style={{fontSize:24,filter:`drop-shadow(0 0 8px ${T.accent}88)`}}>⚖️</span>
           <div>
@@ -1165,7 +1121,7 @@ function App(){
         <div style={{display:"flex",gap:3,background:T.card2,borderRadius:10,padding:3,border:`1px solid ${T.border}`}}>
           {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="bhov"
             style={{background:tab===t.id?T.tabActive:"transparent",color:tab===t.id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontFamily:"'DM Mono',monospace",fontWeight:tab===t.id?600:400,transition:"all .18s",whiteSpace:"nowrap"}}>
-            {t.label}{tab===t.id&&dirty?<span style={{marginLeft:5,width:6,height:6,borderRadius:"50%",background:T.warnText,display:"inline-block",verticalAlign:"middle"}}/>:null}
+            {t.label}
           </button>)}
         </div>
         <div style={{flex:1}}/>
@@ -1179,7 +1135,7 @@ function App(){
 
       {/* ── CONTEÚDO ── */}
       <div style={{padding:"20px 22px",maxWidth:1200,margin:"0 auto"}}>
-        {!loaded
+        {!fbLoaded
           ?<div style={{textAlign:"center",padding:"80px 0",color:T.muted,display:"flex",flexDirection:"column",alignItems:"center",gap:14}}>
             <div className="spin" style={{width:32,height:32,border:`3px solid ${T.border2}`,borderTopColor:T.accent,borderRadius:"50%"}}/>
             Conectando ao Firebase...
