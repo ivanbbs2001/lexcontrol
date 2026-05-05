@@ -1054,13 +1054,15 @@ function App(){
   const [manual,setManual]       = useState([]);
   const [loaded,setLoaded]       = useState(false);
   const [fbReady,setFbReady]     = useState(!!window.__firebase);
-  const sync = useSyncManager();
+  // Sync state
+  const [dirty,setDirty]         = useState(false);
+  const [saving,setSaving]       = useState(false);
+  const [savedAt,setSavedAt]     = useState(null);
+  const [syncErr,setSyncErr]     = useState("");
+  // fbRef stores the exact array reference last received from Firebase.
+  // If local state === fbRef → change came from Firebase → don't mark dirty.
+  const fbRef = useRef({c:null,co:null,mp:null});
   const T = THEMES[themeId];
-
-  // Stores the exact array reference that Firebase last sent us.
-  // If local state === this reference, the change came FROM Firebase → skip save.
-  // If local state !== this reference, the user edited → save.
-  const fbRef = useRef({c:null, co:null, mp:null});
 
   useEffect(()=>{
     if(window.__firebase){setFbReady(true);return;}
@@ -1071,53 +1073,53 @@ function App(){
 
   useEffect(()=>{
     if(!fbReady||!window.__firebase)return;
-    sync.setConnecting();
     const fb=window.__firebase;
-    const u1=fb.subscribeList("contracts",it=>{
-      fbRef.current.c=it; setContracts(it); setLoaded(true); sync.setReady();
-    });
-    const u2=fb.subscribeList("costs",it=>{
-      fbRef.current.co=it; setCosts(it);
-    });
-    const u3=fb.subscribeList("manualPayments",it=>{
-      fbRef.current.mp=it; setManual(it);
-    });
+    const u1=fb.subscribeList("contracts",it=>{ fbRef.current.c=it; setContracts(it); setLoaded(true); });
+    const u2=fb.subscribeList("costs",it=>{ fbRef.current.co=it; setCosts(it); });
+    const u3=fb.subscribeList("manualPayments",it=>{ fbRef.current.mp=it; setManual(it); });
     const u4=fb.subscribeSetting("theme",v=>{ if(v) setThemeId(v); });
     return()=>{u1();u2();u3();u4();};
   },[fbReady]);
 
-  // Only save when the reference differs from what Firebase last sent — i.e. user changed something.
-  useEffect(()=>{
-    if(!loaded||!window.__firebase)return;
-    if(contracts===fbRef.current.c)return; // came from Firebase, skip
-    sync.schedule("c",()=>window.__firebase.saveList("contracts",contracts),"contratos");
-  },[contracts]);
+  // Only track dirty — never auto-save. Reference equality: if same object as Firebase sent, skip.
+  useEffect(()=>{ if(loaded&&contracts!==fbRef.current.c) setDirty(true); },[contracts]);
+  useEffect(()=>{ if(loaded&&costs!==fbRef.current.co)    setDirty(true); },[costs]);
+  useEffect(()=>{ if(loaded&&manual!==fbRef.current.mp)   setDirty(true); },[manual]);
 
+  // Theme: lightweight, auto-save is fine (no loop risk — no array involved)
   useEffect(()=>{
-    if(!loaded||!window.__firebase)return;
-    if(costs===fbRef.current.co)return;
-    sync.schedule("co",()=>window.__firebase.saveList("costs",costs),"custos");
-  },[costs]);
-
-  useEffect(()=>{
-    if(!loaded||!window.__firebase)return;
-    if(manual===fbRef.current.mp)return;
-    sync.schedule("mp",()=>window.__firebase.saveList("manualPayments",manual),"pagamentos");
-  },[manual]);
-
-  useEffect(()=>{
-    if(!fbReady||!window.__firebase)return;
-    sync.schedule("th",()=>window.__firebase.saveSetting("theme",themeId),"tema");
+    if(fbReady&&window.__firebase) window.__firebase.saveSetting("theme",themeId).catch(()=>{});
   },[themeId]);
 
-  const SC={
-    ok:     {bg:T.sOkBg, tx:T.sOkTx, dot:T.sOkDot},
-    syncing:{bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot},
-    error:  {bg:T.sErrBg,tx:T.sErrTx,dot:T.sErrDot},
-    offline:{bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot},
-  };
-  const sc=SC[sync.state]||SC.offline;
-  const icons={ok:"✔",syncing:"⟳",error:"⚠",offline:"⏳"};
+  // Manual save — user clicks the button
+  async function saveAll(){
+    if(!window.__firebase||saving)return;
+    setSaving(true); setSyncErr("");
+    try{
+      await Promise.all([
+        window.__firebase.saveList("contracts",contracts),
+        window.__firebase.saveList("costs",costs),
+        window.__firebase.saveList("manualPayments",manual),
+      ]);
+      setDirty(false);
+      setSavedAt(new Date());
+    }catch(e){
+      setSyncErr(e.message||"Erro ao salvar");
+    }finally{
+      setSaving(false);
+    }
+  }
+
+  // Sync bar appearance
+  const syncBar = syncErr
+    ? {bg:"#270d0d",tx:"#f87171",dot:"#ef4444",dotPulse:false,msg:"⚠ "+syncErr}
+    : saving
+    ? {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,dotPulse:true,msg:"Salvando..."}
+    : dirty
+    ? {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,dotPulse:false,msg:"● Alterações não salvas"}
+    : savedAt
+    ? {bg:T.sOkBg,tx:T.sOkTx,dot:T.sOkDot,dotPulse:false,msg:"✔ Sincronizado · "+savedAt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+    : {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,dotPulse:false,msg:"Aguardando Firebase..."};
 
   const TABS=[
     {id:"contratos",label:"📄 Contratos"},
@@ -1131,15 +1133,28 @@ function App(){
     <div style={{background:T.bg,minHeight:"100vh",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:13}}>
       <style>{`.row-hover:hover{background:${T.hover}!important;}`}</style>
 
-      {/* ── BARRA SYNC ── */}
-      <div style={{background:sc.bg,borderBottom:`1px solid ${sc.dot}44`,padding:"5px 20px",display:"flex",alignItems:"center",gap:8,minHeight:28,position:"sticky",top:0,zIndex:101}}>
-        <span className={`sync-dot${sync.state==="syncing"?" pulsing":""}`} style={{background:sc.dot}}/>
-        <span style={{fontSize:11,color:sc.tx,fontWeight:500,flex:1}}>{icons[sync.state]} {sync.msg}</span>
-        {sync.state==="error"&&<button onClick={sync.clearError} style={{background:"none",border:`1px solid ${sc.dot}`,borderRadius:5,padding:"2px 8px",fontSize:10,color:sc.tx,cursor:"pointer"}}>✕</button>}
+      {/* ── BARRA DE SYNC ── */}
+      <div style={{background:syncBar.bg,borderBottom:`1px solid ${syncBar.dot}44`,padding:"5px 16px",display:"flex",alignItems:"center",gap:10,minHeight:30,position:"sticky",top:0,zIndex:101}}>
+        <span className={`sync-dot${syncBar.dotPulse?" pulsing":""}`} style={{background:syncBar.dot}}/>
+        <span style={{fontSize:11,color:syncBar.tx,fontWeight:500,flex:1}}>{syncBar.msg}</span>
+        {/* Botão salvar — aparece quando há alterações ou erro */}
+        {(dirty||syncErr)&&!saving&&(
+          <button onClick={saveAll}
+            style={{background:T.accent,color:T.accentText,border:"none",borderRadius:7,padding:"4px 14px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'DM Mono',monospace",display:"flex",alignItems:"center",gap:6}}>
+            💾 Salvar agora
+          </button>
+        )}
+        {saving&&(
+          <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:syncBar.tx}}>
+            <div className="spin" style={{width:12,height:12,border:`2px solid ${syncBar.dot}44`,borderTopColor:syncBar.dot,borderRadius:"50%"}}/>
+            Salvando...
+          </div>
+        )}
+        {syncErr&&<button onClick={()=>setSyncErr("")} style={{background:"none",border:`1px solid ${syncBar.dot}`,borderRadius:5,padding:"2px 8px",fontSize:10,color:syncBar.tx,cursor:"pointer"}}>✕</button>}
       </div>
 
       {/* ── HEADER ── */}
-      <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"11px 22px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",position:"sticky",top:28,zIndex:99}}>
+      <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"11px 22px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",position:"sticky",top:30,zIndex:99}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginRight:8}}>
           <span style={{fontSize:24,filter:`drop-shadow(0 0 8px ${T.accent}88)`}}>⚖️</span>
           <div>
@@ -1148,14 +1163,21 @@ function App(){
           </div>
         </div>
         <div style={{display:"flex",gap:3,background:T.card2,borderRadius:10,padding:3,border:`1px solid ${T.border}`}}>
-          {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="bhov" style={{background:tab===t.id?T.tabActive:"transparent",color:tab===t.id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontFamily:"'DM Mono',monospace",fontWeight:tab===t.id?600:400,transition:"all .18s",whiteSpace:"nowrap"}}>{t.label}</button>)}
+          {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="bhov"
+            style={{background:tab===t.id?T.tabActive:"transparent",color:tab===t.id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontFamily:"'DM Mono',monospace",fontWeight:tab===t.id?600:400,transition:"all .18s",whiteSpace:"nowrap"}}>
+            {t.label}{tab===t.id&&dirty?<span style={{marginLeft:5,width:6,height:6,borderRadius:"50%",background:T.warnText,display:"inline-block",verticalAlign:"middle"}}/>:null}
+          </button>)}
         </div>
         <div style={{flex:1}}/>
         <div style={{display:"flex",gap:4}}>
-          {Object.values(THEMES).map(th=><button key={th.id} onClick={()=>setThemeId(th.id)} className="bhov" style={{background:themeId===th.id?T.accent:T.card2,color:themeId===th.id?T.accentText:T.muted,border:`1px solid ${T.border}`,borderRadius:7,padding:"5px 10px",fontSize:11,fontFamily:"'DM Mono',monospace",whiteSpace:"nowrap"}}>{th.label}</button>)}
+          {Object.values(THEMES).map(th=><button key={th.id} onClick={()=>setThemeId(th.id)} className="bhov"
+            style={{background:themeId===th.id?T.accent:T.card2,color:themeId===th.id?T.accentText:T.muted,border:`1px solid ${T.border}`,borderRadius:7,padding:"5px 10px",fontSize:11,fontFamily:"'DM Mono',monospace",whiteSpace:"nowrap"}}>
+            {th.label}
+          </button>)}
         </div>
       </div>
 
+      {/* ── CONTEÚDO ── */}
       <div style={{padding:"20px 22px",maxWidth:1200,margin:"0 auto"}}>
         {!loaded
           ?<div style={{textAlign:"center",padding:"80px 0",color:T.muted,display:"flex",flexDirection:"column",alignItems:"center",gap:14}}>
