@@ -1031,8 +1031,8 @@ function App(){
     const docRef = window.db.doc("workspaces/"+window.WS);
     const unsub = docRef.onSnapshot(
       snap => {
-        loadingFromFb.current = true;          // sinaliza: veio do Firebase
-        if(snap.exists()){
+        loadingFromFb.current = true;
+        if(snap.exists){                   // compat SDK: propriedade, não método
           const d = snap.data();
           if(d.contracts)  setContracts(d.contracts);
           if(d.costs)      setCosts(d.costs);
