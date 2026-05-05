@@ -150,8 +150,9 @@ const genId=()=>Date.now()+Math.floor(Math.random()*9999);
 const fmt=v=>{const n=parseFloat(String(v??0).replace(/[^\d.,-]/g,"").replace(",","."));return isNaN(n)?(String(v)||"—"):n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});};
 const fmtN=v=>parseFloat(String(v??0).replace(/[^\d.,-]/g,"").replace(",","."))||0;
 const waLink=phone=>{const d=phone.replace(/\D/g,"");const num=d.length===11||d.length===10?"55"+d:d;return`https://wa.me/${num}`;};
-const newC=()=>({id:null,nomeArquivo:"",advogado:"",cliente:"",telefone:"",numeroProcesso:"",areaAtuacao:"Cível",valorTotal:"",formaPagamento:"",totalParcelas:1,valorParcela:"",prazos:"",observacoes:"",status:"pendente",dataUpload:new Date().toLocaleDateString("pt-BR"),coAdvogados:[],schedule:[]});
-const newP=()=>({id:null,cliente:"",advogado:"",telefone:"",numeroProcesso:"",areaAtuacao:"Cível",descricao:"",valor:"",mes:new Date().getMonth()+1,ano:new Date().getFullYear(),formaPagamento:"PIX",pago:false,dataLancamento:new Date().toLocaleDateString("pt-BR")});
+const ADV_PRINCIPAL = "Juliana";
+const newC=()=>({id:null,nomeArquivo:"",advogado:ADV_PRINCIPAL,cliente:"",telefone:"",numeroProcesso:"",areaAtuacao:"Cível",valorTotal:"",formaPagamento:"",totalParcelas:1,valorParcela:"",prazos:"",observacoes:"",status:"pendente",dataUpload:new Date().toLocaleDateString("pt-BR"),coAdvogados:[],schedule:[]});
+const newP=()=>({id:null,cliente:"",advogado:ADV_PRINCIPAL,telefone:"",numeroProcesso:"",areaAtuacao:"Cível",descricao:"",valor:"",mes:new Date().getMonth()+1,ano:new Date().getFullYear(),formaPagamento:"PIX",pago:false,dataLancamento:new Date().toLocaleDateString("pt-BR")});
 
 /* ═══════════════════════════════════════════════════════
    SYNC MANAGER  — single source of truth for sync state
@@ -328,7 +329,7 @@ function TabContratos({T,contracts,setContracts}){
       const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.__firebase.ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,messages})});
       const data=await res.json();const txt=data.content?.find(b=>b.type==="text")?.text??"{}";
       const p=JSON.parse(txt.replace(/```json|```/g,"").trim());
-      setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:p.advogado||"",cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||""},...prev]);
+      setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:p.advogado||ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||""},...prev]);
     }catch(e){setError(e.message||"Erro.");}finally{setLoading(false);setLoadMsg("");}
   }
   function saveNew(){if(!nd.cliente)return;setContracts(p=>[{...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")},...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});}
@@ -515,39 +516,68 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
             const area=isSch?c.areaAtuacao:e.areaAtuacao;
             const aColor=AREA_COLORS[area]||"#94a3b8";
             return(
-              <div key={e.id} style={{background:T.card,border:`1px solid ${e.pago?T.successText+"55":T.border}`,borderRadius:14,overflow:"hidden",transition:"border .2s"}}>
-                {/* colored top bar by area */}
-                <div style={{height:3,background:aColor}}/>
-                <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px"}}>
-                  <input type="checkbox" checked={e.pago} onChange={()=>isSch?togS(c.id,e.id):togM(e.id)} style={{width:20,height:20,cursor:"pointer",accentColor:aColor,flexShrink:0}}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
-                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:T.strong,fontWeight:700}}>{isSch?c.cliente:e.cliente}</span>
-                      <ABadge area={area}/>
-                      {!isSch&&<span style={{fontSize:10,background:T.warnBg,color:T.warnText,borderRadius:4,padding:"1px 6px",fontWeight:600}}>Manual</span>}
+              <div key={e.id} style={{background:T.card,border:`2px solid ${e.pago?T.successText+"66":T.border}`,borderRadius:16,overflow:"hidden",transition:"border .2s",boxShadow:`0 2px 8px ${aColor}18`}}>
+                {/* left accent bar */}
+                <div style={{display:"flex"}}>
+                  <div style={{width:5,background:e.pago?"#10b981":aColor,flexShrink:0}}/>
+                  <div style={{flex:1}}>
+                    {/* top: client hero */}
+                    <div style={{display:"flex",alignItems:"flex-start",gap:14,padding:"16px 18px 12px"}}>
+                      <input type="checkbox" checked={e.pago} onChange={()=>isSch?togS(c.id,e.id):togM(e.id)} style={{width:22,height:22,cursor:"pointer",accentColor:e.pago?"#10b981":aColor,flexShrink:0,marginTop:4}}/>
+                      {/* avatar inicial */}
+                      <div style={{width:46,height:46,borderRadius:12,background:aColor+"28",border:`2px solid ${aColor}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:aColor}}>{(isSch?c.cliente:e.cliente)?.[0]?.toUpperCase()||"?"}</span>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        {/* nome + badges */}
+                        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:6}}>
+                          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.strong,fontWeight:700,lineHeight:1}}>{isSch?c.cliente:e.cliente}</span>
+                          <ABadge area={area}/>
+                          {!isSch&&<span style={{fontSize:10,background:T.warnBg,color:T.warnText,borderRadius:4,padding:"2px 7px",fontWeight:600}}>Manual</span>}
+                        </div>
+                        {/* info row */}
+                        <div style={{display:"flex",gap:0,flexWrap:"wrap"}}>
+                          {/* advogado */}
+                          <div style={{display:"flex",alignItems:"center",gap:5,marginRight:16,marginBottom:4}}>
+                            <span style={{fontSize:10,color:T.muted}}>⚖️</span>
+                            <span style={{fontSize:12,color:T.accent,fontWeight:600}}>{isSch?c.advogado:e.advogado}</span>
+                          </div>
+                          {/* telefone */}
+                          {(isSch?c.telefone:e.telefone)&&<div style={{display:"flex",alignItems:"center",gap:4,marginRight:16,marginBottom:4}}><PhoneLink phone={isSch?c.telefone:e.telefone}/></div>}
+                          {/* processo */}
+                          {(isSch?c.numeroProcesso:e.numeroProcesso)&&<div style={{display:"flex",alignItems:"center",gap:4,marginRight:16,marginBottom:4}}>
+                            <span style={{fontSize:10,color:T.muted}}>📋</span>
+                            <span style={{fontSize:11,color:T.muted,fontFamily:"'DM Mono',monospace"}}>{isSch?c.numeroProcesso:e.numeroProcesso}</span>
+                          </div>}
+                          {/* descrição */}
+                          {e.descricao&&<div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
+                            <span style={{fontSize:10,color:T.muted}}>💬</span>
+                            <span style={{fontSize:11,color:T.muted,fontStyle:"italic"}}>{e.descricao}</span>
+                          </div>}
+                        </div>
+                        {/* forma pagamento */}
+                        {(isSch?c.formaPagamento:e.formaPagamento)&&<span style={{fontSize:10,background:T.card2,border:`1px solid ${T.border}`,borderRadius:4,padding:"2px 7px",color:T.muted}}>{isSch?c.formaPagamento:e.formaPagamento}</span>}
+                      </div>
+                      {/* valor + status */}
+                      <div style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+                        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700,color:e.pago?"#10b981":T.accent,lineHeight:1}}>{fmt(e.valor)}</div>
+                        <div style={{display:"inline-flex",alignItems:"center",gap:6,background:e.pago?"#10b98122":aColor+"18",color:e.pago?"#10b981":aColor,border:`1px solid ${e.pago?"#10b98155":aColor+"44"}`,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700}}>
+                          {e.pago?"✅ Recebido":"⏳ Aguardando"}
+                        </div>
+                        {!isSch&&<div style={{display:"flex",gap:4}}>
+                          <button className="bhov" onClick={()=>editE(e)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 8px",fontSize:12}}>✏</button>
+                          <button className="bhov" onClick={()=>delM(e.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 8px",fontSize:12}}>🗑</button>
+                        </div>}
+                      </div>
                     </div>
-                    <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
-                      <span style={{fontSize:12,color:T.infoText,fontWeight:500}}>{isSch?c.advogado:e.advogado}</span>
-                      {(isSch?c.telefone:e.telefone)&&<PhoneLink phone={isSch?c.telefone:e.telefone}/>}
-                      {(isSch?c.numeroProcesso:e.numeroProcesso)&&<span style={{fontSize:11,color:T.muted}}>📋 {isSch?c.numeroProcesso:e.numeroProcesso}</span>}
-                      {e.descricao&&<span style={{fontSize:11,color:T.muted,fontStyle:"italic"}}>{e.descricao}</span>}
-                    </div>
-                    {(isSch?c.formaPagamento:e.formaPagamento)&&<div style={{marginTop:4,fontSize:11,color:T.muted}}>{isSch?c.formaPagamento:e.formaPagamento}</div>}
                   </div>
-                  <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:700,color:e.pago?"#10b981":T.accent,lineHeight:1}}>{fmt(e.valor)}</div>
-                    <div style={{display:"inline-flex",alignItems:"center",gap:5,marginTop:4,background:e.pago?T.successBg:T.warnBg,color:e.pago?T.successText:T.warnText,borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:600}}>{e.pago?"✅ Recebido":"⏳ Aguardando"}</div>
-                  </div>
-                  {!isSch&&<div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-                    <button className="bhov" onClick={()=>editE(e)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 8px",fontSize:12}}>✏</button>
-                    <button className="bhov" onClick={()=>delM(e.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 8px",fontSize:12}}>🗑</button>
-                  </div>}
+                </div>
                 </div>
                 {coAdvs.length>0&&(
                   <div style={{borderTop:`1px solid ${T.border}`,padding:"10px 18px",background:T.card2}}>
                     <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Divisão Proporcional</div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      {[{nome:c.advogado||"Adv. Principal",percentual:primP},...coAdvs].map((a,i)=>(
+                      {[{nome:c.advogado||ADV_PRINCIPAL,percentual:primP},...coAdvs].map((a,i)=>(
                         <div key={i} style={{background:T.card,borderRadius:8,padding:"8px 12px",border:`1px solid ${T.border}`,flex:"1 1 130px"}}>
                           <div style={{fontSize:11,color:i===0?T.accent:T.infoText,fontWeight:600}}>{a.nome}</div>
                           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:T.strong,fontWeight:700}}>{fmt(fmtN(e.valor)*fmtN(a.percentual)/100)}</div>
@@ -835,6 +865,186 @@ function TabRelatorio({T,contracts,manual,costs}){
 }
 
 /* ═══════════════════════════════════════════════════════
+   TAB CLIENTES
+═══════════════════════════════════════════════════════ */
+function TabClientes({T,contracts,manual,setTab}){
+  const [busca,setBusca]=useState("");
+  const [modalCliente,setModalCliente]=useState(null);
+
+  // Build unique client map from contracts + manual payments
+  const clientMap={};
+  contracts.forEach(c=>{
+    if(!c.cliente)return;
+    const k=c.cliente.trim().toLowerCase();
+    if(!clientMap[k])clientMap[k]={nome:c.cliente,telefone:c.telefone||"",processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
+    const cl=clientMap[k];
+    if(c.telefone&&!cl.telefone)cl.telefone=c.telefone;
+    cl.processos.push({numeroProcesso:c.numeroProcesso||"",area:c.areaAtuacao,status:c.status,valorTotal:fmtN(c.valorTotal),arquivo:c.nomeArquivo,dataUpload:c.dataUpload,id:c.id});
+    cl.valorTotal+=fmtN(c.valorTotal);
+    cl.areas.add(c.areaAtuacao);
+    cl.status[c.status]=(cl.status[c.status]||0)+1;
+    // recebido: soma parcelas pagas
+    (c.schedule||[]).filter(s=>s.pago).forEach(s=>cl.valorRecebido+=fmtN(s.valor));
+  });
+  manual.forEach(p=>{
+    if(!p.cliente)return;
+    const k=p.cliente.trim().toLowerCase();
+    if(!clientMap[k])clientMap[k]={nome:p.cliente,telefone:p.telefone||"",processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
+    const cl=clientMap[k];
+    if(p.telefone&&!cl.telefone)cl.telefone=p.telefone;
+    cl.valorTotal+=fmtN(p.valor);
+    cl.areas.add(p.areaAtuacao);
+    if(p.pago)cl.valorRecebido+=fmtN(p.valor);
+  });
+
+  const clientes=Object.values(clientMap)
+    .filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase()))
+    .sort((a,b)=>b.valorTotal-a.valorTotal);
+
+  const totalClientes=clientes.length;
+  const totalCarteira=clientes.reduce((s,c)=>s+c.valorTotal,0);
+  const totalRecebido=clientes.reduce((s,c)=>s+c.valorRecebido,0);
+
+  function initials(n){return n.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();}
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Clientes</span>
+        <div style={{flex:1}}/>
+        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar cliente..." style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,width:220}}/>
+      </div>
+
+      {/* summary */}
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 18px",flex:"1 1 120px",textAlign:"center"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700,color:T.accent}}>{totalClientes}</div>
+          <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:4}}>Clientes</div>
+        </div>
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 18px",flex:"1 1 120px",textAlign:"center"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:T.accent}}>{fmt(totalCarteira)}</div>
+          <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:4}}>Carteira Total</div>
+        </div>
+        <div style={{background:T.successBg,border:`1px solid ${T.successText}44`,borderRadius:12,padding:"14px 18px",flex:"1 1 120px",textAlign:"center"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:T.successText}}>{fmt(totalRecebido)}</div>
+          <div style={{fontSize:10,color:T.successText,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:4}}>Total Recebido</div>
+        </div>
+        <div style={{background:T.dangerBg,border:`1px solid ${T.dangerText}44`,borderRadius:12,padding:"14px 18px",flex:"1 1 120px",textAlign:"center"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:T.dangerText}}>{fmt(totalCarteira-totalRecebido)}</div>
+          <div style={{fontSize:10,color:T.dangerText,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:4}}>A Receber</div>
+        </div>
+      </div>
+
+      {/* client cards grid */}
+      {clientes.length===0
+        ?<div style={{textAlign:"center",color:T.muted,padding:"60px 0"}}><div style={{fontSize:36,marginBottom:12}}>👥</div>Nenhum cliente encontrado.</div>
+        :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+          {clientes.map(cl=>{
+            const pct=cl.valorTotal>0?Math.round(cl.valorRecebido/cl.valorTotal*100):0;
+            const aList=[...cl.areas].filter(Boolean);
+            const statusAtivos=Object.entries(cl.status);
+            const pendente=cl.status["pendente"]||0;
+            const emPag=cl.status["em_pagamento"]||0;
+            const pago=(cl.status["pago"]||0)+(cl.status["pago_pendente"]||0);
+            return(
+              <div key={cl.nome} className="bhov" onClick={()=>setModalCliente(cl)}
+                style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:"hidden",cursor:"pointer",transition:"box-shadow .2s",boxShadow:"0 2px 4px #0001"}}>
+                {/* header com avatar */}
+                <div style={{padding:"16px 18px 12px",display:"flex",gap:14,alignItems:"flex-start"}}>
+                  <div style={{width:52,height:52,borderRadius:14,background:T.accent+"22",border:`2px solid ${T.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:T.accent}}>{initials(cl.nome)}</span>
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:700,color:T.strong,lineHeight:1.2,marginBottom:4}}>{cl.nome}</div>
+                    {cl.telefone&&<PhoneLink phone={cl.telefone}/>}
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6}}>
+                      {aList.map(a=><ABadge key={a} area={a}/>)}
+                    </div>
+                  </div>
+                </div>
+                {/* financeiro */}
+                <div style={{borderTop:`1px solid ${T.border}`,padding:"12px 18px",background:T.card2}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                    <span style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em"}}>Honorários</span>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:T.accent}}>{fmt(cl.valorTotal)}</span>
+                  </div>
+                  <div style={{height:5,background:T.border,borderRadius:3,overflow:"hidden",marginBottom:5}}>
+                    <div style={{width:`${pct}%`,height:"100%",background:pct===100?"#10b981":T.accent,borderRadius:3,transition:"width .4s"}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                    <span style={{color:T.successText,fontWeight:600}}>✅ {fmt(cl.valorRecebido)}</span>
+                    <span style={{color:T.muted}}>{pct}% recebido</span>
+                    <span style={{color:T.warnText,fontWeight:600}}>⏳ {fmt(cl.valorTotal-cl.valorRecebido)}</span>
+                  </div>
+                </div>
+                {/* processos badges */}
+                <div style={{padding:"10px 18px",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  <span style={{fontSize:11,color:T.muted}}>{cl.processos.length} processo{cl.processos.length!==1?"s":""}</span>
+                  {pendente>0&&<span style={{fontSize:10,background:"#f59e0b22",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:4,padding:"1px 7px",fontWeight:600}}>⏳ {pendente}</span>}
+                  {emPag>0&&<span style={{fontSize:10,background:"#3b82f622",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 7px",fontWeight:600}}>💳 {emPag}</span>}
+                  {pago>0&&<span style={{fontSize:10,background:"#10b98122",color:"#10b981",border:"1px solid #10b98144",borderRadius:4,padding:"1px 7px",fontWeight:600}}>✅ {pago}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>}
+
+      {/* modal detalhe cliente */}
+      {modalCliente&&(
+        <Modal T={T} title={modalCliente.nome} sub={`${modalCliente.processos.length} processo${modalCliente.processos.length!==1?"s":""} · ${[...modalCliente.areas].join(", ")}`} onClose={()=>setModalCliente(null)} width={680}>
+          <div>
+            {/* contato */}
+            {modalCliente.telefone&&(
+              <div style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:20}}>📞</span>
+                <PhoneLink phone={modalCliente.telefone}/>
+              </div>
+            )}
+
+            {/* resumo financeiro */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+              {[["Honorários Total",fmt(modalCliente.valorTotal),T.accent],["Recebido",fmt(modalCliente.valorRecebido),T.successText],["A Receber",fmt(modalCliente.valorTotal-modalCliente.valorRecebido),T.warnText]].map(([l,v,cor])=>(
+                <div key={l} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
+                  <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:4}}>{l}</div>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:cor}}>{v}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* barra progresso */}
+            {modalCliente.valorTotal>0&&(
+              <div style={{marginBottom:16}}>
+                <div style={{height:8,background:T.border,borderRadius:4,overflow:"hidden",marginBottom:4}}>
+                  <div style={{width:`${Math.round(modalCliente.valorRecebido/modalCliente.valorTotal*100)}%`,height:"100%",background:T.accent,borderRadius:4}}/>
+                </div>
+                <div style={{textAlign:"center",fontSize:11,color:T.muted}}>{Math.round(modalCliente.valorRecebido/modalCliente.valorTotal*100)}% recebido</div>
+              </div>
+            )}
+
+            {/* lista processos */}
+            <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Processos / Contratos</div>
+            {modalCliente.processos.map((p,i)=>{
+              const st=STATUS_CFG[p.status]||STATUS_CFG.pendente;
+              return(
+                <div key={i} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:6}}>
+                    <ABadge area={p.area}/>
+                    <span style={{fontSize:11,color:st.color,fontWeight:600}}>{st.icon} {st.label}</span>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:T.accent,fontWeight:700,marginLeft:"auto"}}>{fmt(p.valorTotal)}</span>
+                  </div>
+                  {p.numeroProcesso&&<div style={{fontSize:11,color:T.muted,fontFamily:"'DM Mono',monospace",marginBottom:2}}>📋 {p.numeroProcesso}</div>}
+                  <div style={{fontSize:10,color:T.muted}}>{p.arquivo} · {p.dataUpload}</div>
+                </div>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    APP PRINCIPAL
 ═══════════════════════════════════════════════════════ */
 function App(){
@@ -884,6 +1094,7 @@ function App(){
     {id:"contratos",label:"📄 Contratos"},
     {id:"pagamentos",label:"💰 Pagamentos"},
     {id:"custos",label:"🏢 Custos"},
+    {id:"clientes",label:"👥 Clientes"},
     {id:"relatorio",label:"📊 Relatório"},
   ];
 
@@ -925,6 +1136,7 @@ function App(){
           :tab==="contratos" ?<TabContratos T={T} contracts={contracts} setContracts={setContracts}/>
           :tab==="pagamentos"?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual}/>
           :tab==="custos"    ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
+          :tab==="clientes"  ?<TabClientes T={T} contracts={contracts} manual={manual} setTab={setTab}/>
           :<TabRelatorio T={T} contracts={contracts} manual={manual} costs={costs}/>
         }
       </div>
