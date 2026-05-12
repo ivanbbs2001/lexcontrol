@@ -1004,91 +1004,99 @@ function TabClientes({T,contracts,manual,setTab}){
 }
 
 /* ═══════════════════════════════════════════════════════
-   APP PRINCIPAL — sync igual ao dieta-app
-   • Firebase Compat SDK (sem módulos, sem bridge)
-   • 1 documento Firestore guarda tudo
-   • Debounce 1.5s + flag para evitar loop de onSnapshot
+   APP — persistência seguindo o padrão dieta-app
+   Prompt: fbLoaded guard · debounce 1.5s · onSnapshot
 ═══════════════════════════════════════════════════════ */
 function App(){
+  /* ── 1. Estados da UI ─────────────────────────────── */
   const [themeId,setThemeId]     = useState("industrial");
   const [tab,setTab]             = useState("contratos");
   const [contracts,setContracts] = useState([]);
   const [costs,setCosts]         = useState([]);
   const [manual,setManual]       = useState([]);
-  // Sync state (igual dieta-app)
-  const [fbLoaded,setFbLoaded]   = useState(false);
-  const [fbSaving,setFbSaving]   = useState(false);
-  const [fbError,setFbError]     = useState("");
-  const [fbSavedAt,setFbSavedAt] = useState(null);
-  // Flag: quando onSnapshot carrega dados, não disparar save
-  const loadingFromFb = useRef(false);
-  const saveTimer     = useRef(null);
+
+  /* ── 2. Estados de sync (exatamente como no prompt) ── */
+  const [fbLoaded, setFbLoaded] = useState(false);
+  const [fbSaving, setFbSaving] = useState(false);
+  const [fbError,  setFbError]  = useState(null);
+  const saveTimeout = useRef(null);
+
   const T = THEMES[themeId];
 
-  /* ── Carrega dados do Firestore em tempo real ── */
+  /* ── 3. CARREGAR — abre canal em tempo real (prompt §4) */
   useEffect(()=>{
     if(!window.db) return;
-    const docRef = window.db.doc("workspaces/"+window.WS);
-    const unsub = docRef.onSnapshot(
+    const unsub = window.db.doc("workspaces/"+window.WS).onSnapshot(
       snap => {
-        loadingFromFb.current = true;
-        if(snap.exists){                   // compat SDK: propriedade, não método
+        if(snap.exists){                  // compat SDK: propriedade, não método
           const d = snap.data();
-          if(d.contracts)  setContracts(d.contracts);
-          if(d.costs)      setCosts(d.costs);
-          if(d.manual)     setManual(d.manual);
-          if(d.theme)      setThemeId(d.theme);
+          if(Array.isArray(d.contracts))  setContracts(d.contracts);
+          if(Array.isArray(d.costs))      setCosts(d.costs);
+          if(Array.isArray(d.manual))     setManual(d.manual);
+          if(d.theme)                     setThemeId(d.theme);
         }
-        setFbLoaded(true);
+        setFbLoaded(true);                // ativa o save effect
       },
-      err => { setFbError(err.message); setFbLoaded(true); }
+      err => {
+        setFbError(err.message);
+        setFbLoaded(true);                // mostra o app mesmo offline
+      }
     );
-    return ()=>unsub();
+    return ()=>unsub();                   // cleanup: cancela listener
   },[]);
 
-  /* ── Salva com debounce (1.5s) ──────────────────
-     Padrão idêntico ao dieta-app:
-     - Se `loadingFromFb` está ativo → dados vieram
-       do Firestore → pula o save (reset flag e volta).
-     - Caso contrário → usuário editou → salva após 1.5s.
+  /* ── 4. SALVAR — debounce 1.5s (prompt §5) ───────────
+     Observa todos os estados que devem persistir.
+     Guard: if(!fbLoaded) return  →  nunca salva antes de carregar.
   ── */
   useEffect(()=>{
-    if(!fbLoaded || !window.db) return;
+    if(!fbLoaded) return;                 // proteção principal contra sobrescrever
 
-    // Veio do Firebase? Pula e reseta a flag.
-    if(loadingFromFb.current){
-      loadingFromFb.current = false;
-      return;
-    }
-
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async ()=>{
+    clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(async ()=>{
+      if(!window.db) return;
       setFbSaving(true);
-      setFbError("");
       try{
-        await window.db.doc("workspaces/"+window.WS).set(
-          { contracts, costs, manual, theme:themeId },
-          { merge: false }
-        );
+        await window.db.doc("workspaces/"+window.WS).set({
+          contracts,
+          costs,
+          manual,
+          theme: themeId,
+          updatedAt: new Date().toISOString(),   // campo exigido pelo prompt
+        });
         setFbSaving(false);
-        setFbSavedAt(new Date());
+        setFbError(null);
       }catch(e){
         setFbSaving(false);
-        setFbError(e.message||"Erro ao salvar");
+        setFbError(e.message || "Erro ao salvar");
       }
     }, 1500);
   },[contracts, costs, manual, themeId, fbLoaded]);
+  //                                    ^^^^^^^^^
+  //  fbLoaded no array faz o primeiro save rodar logo
+  //  após o carregamento — necessário para persistir
+  //  edições feitas antes de fbLoaded virar true.
 
-  /* ── Barra de sync ── */
-  const syncBar = !fbLoaded
-    ? {bg:"#1a1a0a",tx:"#f59e0b",dot:"#f59e0b",pulse:true, msg:"Conectando ao Firebase..."}
-    : fbError
-    ? {bg:"#270d0d",tx:"#f87171",dot:"#ef4444",pulse:false,msg:"⚠ "+fbError}
-    : fbSaving
-    ? {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,pulse:true, msg:"Salvando..."}
-    : fbSavedAt
-    ? {bg:T.sOkBg,  tx:T.sOkTx,  dot:T.sOkDot, pulse:false,msg:"✔ Sincronizado · "+fbSavedAt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
-    : {bg:T.sWaitBg,tx:T.sWaitTx,dot:T.sWaitDot,pulse:false,msg:"Aguardando..."};
+  /* ── 5. Indicador visual (prompt §6) ──────────────── */
+  const cloudMsg = !fbLoaded ? "☁️ conectando..."
+                 : fbError   ? "⚠️ offline"
+                 : fbSaving  ? "☁️ salvando..."
+                 :             "☁️ sincronizado";
+  const cloudColor = fbError   ? "#f87171"
+                   : fbSaving  ? "#fbbf24"
+                   : fbLoaded  ? "#4ade80"
+                   :             "#fbbf24";
+
+  /* ── Sync bar colors ────────────────────────────────── */
+  const syncBg = fbError  ? "#270d0d"
+               : fbSaving ? T.sWaitBg
+               : fbLoaded ? T.sOkBg
+               :             T.sWaitBg;
+  const syncBorder = fbError  ? "#ef444444"
+                   : fbSaving ? T.sWaitDot+"44"
+                   : fbLoaded ? T.sOkDot+"44"
+                   :             T.sWaitDot+"44";
+  const syncPulse = !fbLoaded || fbSaving;
 
   const TABS=[
     {id:"contratos",label:"📄 Contratos"},
@@ -1103,10 +1111,10 @@ function App(){
       <style>{`.row-hover:hover{background:${T.hover}!important;}`}</style>
 
       {/* ── BARRA SYNC ── */}
-      <div style={{background:syncBar.bg,borderBottom:`1px solid ${syncBar.dot}44`,padding:"5px 20px",display:"flex",alignItems:"center",gap:8,minHeight:28,position:"sticky",top:0,zIndex:101}}>
-        <span className={`sync-dot${syncBar.pulse?" pulsing":""}`} style={{background:syncBar.dot}}/>
-        <span style={{fontSize:11,color:syncBar.tx,fontWeight:500,flex:1}}>{syncBar.msg}</span>
-        {fbError&&<button onClick={()=>setFbError("")} style={{background:"none",border:`1px solid ${syncBar.dot}`,borderRadius:5,padding:"2px 8px",fontSize:10,color:syncBar.tx,cursor:"pointer"}}>✕</button>}
+      <div style={{background:syncBg,borderBottom:`1px solid ${syncBorder}`,padding:"5px 20px",display:"flex",alignItems:"center",gap:8,minHeight:28,position:"sticky",top:0,zIndex:101}}>
+        <span className={`sync-dot${syncPulse?" pulsing":""}`} style={{background:cloudColor}}/>
+        <span style={{fontSize:11,color:cloudColor,fontWeight:500,flex:1}}>{cloudMsg}</span>
+        {fbError&&<button onClick={()=>setFbError(null)} style={{background:"none",border:`1px solid #ef444466`,borderRadius:5,padding:"2px 8px",fontSize:10,color:"#f87171",cursor:"pointer"}}>✕</button>}
       </div>
 
       {/* ── HEADER ── */}
@@ -1138,7 +1146,7 @@ function App(){
         {!fbLoaded
           ?<div style={{textAlign:"center",padding:"80px 0",color:T.muted,display:"flex",flexDirection:"column",alignItems:"center",gap:14}}>
             <div className="spin" style={{width:32,height:32,border:`3px solid ${T.border2}`,borderTopColor:T.accent,borderRadius:"50%"}}/>
-            Conectando ao Firebase...
+            ☁️ conectando...
           </div>
           :tab==="contratos" ?<TabContratos T={T} contracts={contracts} setContracts={setContracts}/>
           :tab==="pagamentos"?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual}/>
