@@ -19,7 +19,7 @@
        🔧 FIREBASE — preencha com seus valores
        Firebase Console → Configurações → Seus apps
     ════════════════════════════════════════════ */
-     var FIREBASE_CONFIG = {
+    var FIREBASE_CONFIG = {
       apiKey: "AIzaSyDbTPc2dJ-4nZHL5nVwZFyfxBsA92s1Tzw",
       authDomain: "escritorioju2.firebaseapp.com",
       projectId: "escritorioju2",
@@ -201,13 +201,13 @@ const PhoneLink=({phone})=>{
 ═══════════════════════════════════════════════════════ */
 function CForm({T,data,set,nA,sA,nS,sS}){
   const radioName=useRef("cform-"+Math.random().toString(36).slice(2));
+  const [parceiroMode,setParceiroMode]=useState((data.coAdvogados||[]).length>0);
   function addA(){if(!nA.nome||!nA.pct)return;set(d=>({...d,coAdvogados:[...(d.coAdvogados||[]),{id:genId(),nome:nA.nome,percentual:nA.pct}]}));sA({nome:"",pct:""});}
   function remA(id){set(d=>({...d,coAdvogados:d.coAdvogados.filter(a=>a.id!==id)}));}
   function addS(){if(!nS.valor)return;set(d=>({...d,schedule:[...(d.schedule||[]),{id:genId(),...nS,valor:fmtN(nS.valor)}]}));sS({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
   function togS(sid){set(d=>({...d,schedule:d.schedule.map(s=>s.id===sid?{...s,pago:!s.pago}:s)}));}
   function remS(sid){set(d=>({...d,schedule:d.schedule.filter(s=>s.id!==sid)}));}
   const coSum=(data.coAdvogados||[]).reduce((s,a)=>s+fmtN(a.percentual),0);
-  const hasParceria=(data.coAdvogados||[]).length>0;
   // validação: soma do cronograma vs valor total
   const schedTotal=(data.schedule||[]).reduce((s,p)=>s+fmtN(p.valor),0);
   const vTotal=fmtN(data.valorTotal);
@@ -244,13 +244,13 @@ function CForm({T,data,set,nA,sA,nS,sS}){
       <div style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
         <span style={{fontSize:12,color:T.accent,fontWeight:700}}>⚖️ Juliana</span>
         <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}>
-          <input type="radio" name={radioName.current} checked={!hasParceria} onChange={()=>set(d=>({...d,coAdvogados:[]}))} style={{accentColor:T.accent,cursor:"pointer"}}/>Solo
+          <input type="radio" name={radioName.current} checked={!parceiroMode} onChange={()=>{setParceiroMode(false);set(d=>({...d,coAdvogados:[]}));}} style={{accentColor:T.accent,cursor:"pointer"}}/>Solo
         </label>
         <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}>
-          <input type="radio" name={radioName.current} checked={hasParceria} onChange={()=>{if(!hasParceria)sA({nome:"",pct:""});}} style={{accentColor:T.accent,cursor:"pointer"}}/>Parceria
+          <input type="radio" name={radioName.current} checked={parceiroMode} onChange={()=>{setParceiroMode(true);sA({nome:"",pct:""}); }} style={{accentColor:T.accent,cursor:"pointer"}}/>Parceria
         </label>
       </div>
-      {hasParceria&&(
+      {parceiroMode&&(
         <div style={{marginBottom:16}}>
           {(data.coAdvogados||[]).map(a=>(
             <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,background:T.card2,borderRadius:7,padding:"7px 10px"}}>
