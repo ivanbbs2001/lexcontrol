@@ -1019,51 +1019,66 @@ function App(){
   const [fbLoaded, setFbLoaded] = useState(false);
   const [fbSaving, setFbSaving] = useState(false);
   const [fbError,  setFbError]  = useState(null);
-  const saveTimeout = useRef(null);
+  const saveTimeout    = useRef(null);
+  const loadingFromFb  = useRef(false);  // true enquanto onSnapshot processa dados
 
   const T = THEMES[themeId];
 
   /* ── 3. CARREGAR — abre canal em tempo real (prompt §4) */
   useEffect(()=>{
     if(!window.db) return;
-    const unsub = window.db.doc("workspaces/"+window.WS).onSnapshot(
+    // Caminho na subcoleção — compatível com as regras do Firestore:
+    // match /workspaces/{id}/data/{doc} { allow read, write: if true; }
+    const docRef = window.db.collection("workspaces").doc(window.WS)
+                             .collection("data").doc("main");
+    const unsub = docRef.onSnapshot(
       snap => {
-        if(snap.exists){                  // compat SDK: propriedade, não método
+        loadingFromFb.current = true;     // sinaliza: esta mudança veio do Firebase
+        if(snap.exists){                  // compat SDK: propriedade booleana, NÃO método
           const d = snap.data();
           if(Array.isArray(d.contracts))  setContracts(d.contracts);
           if(Array.isArray(d.costs))      setCosts(d.costs);
           if(Array.isArray(d.manual))     setManual(d.manual);
           if(d.theme)                     setThemeId(d.theme);
         }
-        setFbLoaded(true);                // ativa o save effect
+        setFbLoaded(true);
       },
       err => {
         setFbError(err.message);
-        setFbLoaded(true);                // mostra o app mesmo offline
+        setFbLoaded(true);
       }
     );
-    return ()=>unsub();                   // cleanup: cancela listener
+    return ()=>unsub();
   },[]);
 
   /* ── 4. SALVAR — debounce 1.5s (prompt §5) ───────────
-     Observa todos os estados que devem persistir.
-     Guard: if(!fbLoaded) return  →  nunca salva antes de carregar.
+     Guard 1: if(!fbLoaded) → nunca salva antes de carregar.
+     Guard 2: loadingFromFb → dado veio do Firebase, pula
+              este save para não criar loop infinito.
   ── */
   useEffect(()=>{
-    if(!fbLoaded) return;                 // proteção principal contra sobrescrever
+    if(!fbLoaded) return;
+
+    // Dado veio do Firebase (onSnapshot)? Pula e reseta.
+    if(loadingFromFb.current){
+      loadingFromFb.current = false;
+      return;
+    }
 
     clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(async ()=>{
       if(!window.db) return;
       setFbSaving(true);
       try{
-        await window.db.doc("workspaces/"+window.WS).set({
-          contracts,
-          costs,
-          manual,
-          theme: themeId,
-          updatedAt: new Date().toISOString(),   // campo exigido pelo prompt
-        });
+        await window.db.collection("workspaces").doc(window.WS)
+                       .collection("data").doc("main")
+                       .set({
+                         contracts,
+                         costs,
+                         manual,
+                         theme: themeId,
+                         updatedAt: new Date().toISOString(),
+                       });
         setFbSaving(false);
         setFbError(null);
       }catch(e){
