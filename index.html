@@ -19,7 +19,7 @@
        🔧 FIREBASE — preencha com seus valores
        Firebase Console → Configurações → Seus apps
     ════════════════════════════════════════════ */
-    var FIREBASE_CONFIG = {
+     var FIREBASE_CONFIG = {
       apiKey: "AIzaSyDbTPc2dJ-4nZHL5nVwZFyfxBsA92s1Tzw",
       authDomain: "escritorioju2.firebaseapp.com",
       projectId: "escritorioju2",
@@ -200,6 +200,7 @@ const PhoneLink=({phone})=>{
    CONTRATO FORM
 ═══════════════════════════════════════════════════════ */
 function CForm({T,data,set,nA,sA,nS,sS}){
+  const radioName=useRef("cform-"+Math.random().toString(36).slice(2));
   function addA(){if(!nA.nome||!nA.pct)return;set(d=>({...d,coAdvogados:[...(d.coAdvogados||[]),{id:genId(),nome:nA.nome,percentual:nA.pct}]}));sA({nome:"",pct:""});}
   function remA(id){set(d=>({...d,coAdvogados:d.coAdvogados.filter(a=>a.id!==id)}));}
   function addS(){if(!nS.valor)return;set(d=>({...d,schedule:[...(d.schedule||[]),{id:genId(),...nS,valor:fmtN(nS.valor)}]}));sS({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
@@ -226,7 +227,16 @@ function CForm({T,data,set,nA,sA,nS,sS}){
         <Fld T={T} label="Forma de Pagamento" value={data.formaPagamento} onChange={v=>set(d=>({...d,formaPagamento:v}))} options={FORMAS}/>
         <Fld T={T} label="Nº de Parcelas" value={data.totalParcelas} onChange={v=>set(d=>({...d,totalParcelas:v}))} type="number"/>
         <Fld T={T} label="Valor por Parcela" value={data.valorParcela} onChange={v=>set(d=>({...d,valorParcela:v}))}/>
-        <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Prazos" value={data.prazos} onChange={v=>set(d=>({...d,prazos:v}))}/></div>
+        {(()=>{
+          const vt=fmtN(data.valorTotal),np=parseInt(data.totalParcelas)||0,vp=fmtN(data.valorParcela);
+          const calc=np>0&&vp>0?np*vp:0;
+          if(calc>0&&vt>0&&Math.abs(calc-vt)>0.01)return(
+            <div style={{gridColumn:"1/-1",background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.dangerText,borderRadius:7,padding:"8px 12px",fontSize:12,fontWeight:600}}>
+              ⚠ {np}× {fmt(vp)} = {fmt(calc)} ≠ valor total {fmt(vt)} (diferença {fmt(Math.abs(calc-vt))})
+            </div>
+          );
+          return null;
+        })()}        <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Prazos" value={data.prazos} onChange={v=>set(d=>({...d,prazos:v}))}/></div>
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Observações" value={data.observacoes} onChange={v=>set(d=>({...d,observacoes:v}))} type="textarea"/></div>
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Status" value={data.status} onChange={v=>set(d=>({...d,status:v}))} options={Object.entries(STATUS_CFG).map(([k,v])=>({v:k,l:`${v.icon} ${v.label}`}))}/></div>
       </div>
@@ -234,10 +244,10 @@ function CForm({T,data,set,nA,sA,nS,sS}){
       <div style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
         <span style={{fontSize:12,color:T.accent,fontWeight:700}}>⚖️ Juliana</span>
         <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}>
-          <input type="radio" name="cform-modo" checked={!hasParceria} onChange={()=>set(d=>({...d,coAdvogados:[]}))} style={{accentColor:T.accent,cursor:"pointer"}}/>Solo
+          <input type="radio" name={radioName.current} checked={!hasParceria} onChange={()=>set(d=>({...d,coAdvogados:[]}))} style={{accentColor:T.accent,cursor:"pointer"}}/>Solo
         </label>
         <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}>
-          <input type="radio" name="cform-modo" checked={hasParceria} onChange={()=>{if(!hasParceria)sA({nome:"",pct:""}); }} style={{accentColor:T.accent,cursor:"pointer"}}/>Parceria
+          <input type="radio" name={radioName.current} checked={hasParceria} onChange={()=>{if(!hasParceria)sA({nome:"",pct:""});}} style={{accentColor:T.accent,cursor:"pointer"}}/>Parceria
         </label>
       </div>
       {hasParceria&&(
@@ -391,11 +401,13 @@ function TabContratos({T,contracts,setContracts}){
 /* ═══════════════════════════════════════════════════════
    TAB PAGAMENTOS — redesigned
 ═══════════════════════════════════════════════════════ */
-function TabPagamentos({T,contracts,setContracts,manual,setManual}){
+function TabPagamentos({T,contracts,setContracts,manual,setManual,clientes,setTab}){
   const now=new Date();
   const [mes,setMes]=useState(now.getMonth()+1);const [ano,setAno]=useState(now.getFullYear());
   const [showForm,setShowForm]=useState(false);const [form,setForm]=useState(newP());const [editId,setEditId]=useState(null);
   const [copied,setCopied]=useState(null);
+  const [clienteSugg,setClienteSugg]=useState([]);
+  const [showSugg,setShowSugg]=useState(false);
   const years=Array.from({length:6},(_,i)=>now.getFullYear()-2+i);
 
   const schedE=contracts.flatMap(c=>(c.schedule||[]).filter(s=>s.mes===mes&&s.ano===ano).map(s=>({...s,_t:"s",contrato:c})));
@@ -470,7 +482,45 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
           <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"✏ Editar":"+ Novo Pagamento Manual"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-            <Fld T={T} label="Cliente" value={form.cliente} onChange={v=>setForm(d=>({...d,cliente:v}))}/>
+            {/* CLIENTE — autocomplete */}
+            <div style={{position:"relative",gridColumn:"1/-1"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                <label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Cliente</label>
+                <input value={form.cliente} placeholder="Digite o nome do cliente..."
+                  onChange={e=>{
+                    const v=e.target.value;
+                    setForm(d=>({...d,cliente:v}));
+                    if(v.length>=2){
+                      const s=clientes.filter(c=>c.nome.toLowerCase().includes(v.toLowerCase()));
+                      setClienteSugg(s);setShowSugg(true);
+                    }else{setShowSugg(false);}
+                  }}
+                  onBlur={()=>setTimeout(()=>setShowSugg(false),150)}
+                  style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+              </div>
+              {showSugg&&(
+                <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:50,background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,boxShadow:"0 8px 24px #0002",marginTop:2,maxHeight:200,overflowY:"auto"}}>
+                  {clienteSugg.length>0
+                    ?clienteSugg.map(c=>(
+                        <div key={c.id} onMouseDown={()=>{setForm(d=>({...d,cliente:c.nome,telefone:c.celular||d.telefone}));setShowSugg(false);}}
+                          style={{padding:"9px 14px",cursor:"pointer",borderBottom:`1px solid ${T.border}`,fontSize:12,color:T.text}}
+                          onMouseOver={e=>e.currentTarget.style.background=T.hover} onMouseOut={e=>e.currentTarget.style.background="transparent"}>
+                          <span style={{fontWeight:600}}>{c.nome}</span>
+                          {c.cpf&&<span style={{color:T.muted,marginLeft:8,fontSize:11}}>{c.cpf}</span>}
+                          {c.seq!=null&&<span style={{color:T.muted,marginLeft:8,fontSize:10}}>#{c.seq}</span>}
+                        </div>
+                      ))
+                    :<div style={{padding:"12px 14px",fontSize:12,color:T.warnText,fontWeight:600}}>
+                        Cliente não encontrado.{" "}
+                        <span onMouseDown={()=>{setShowSugg(false);setShowForm(false);setTab&&setTab("clientes");}}
+                          style={{textDecoration:"underline",cursor:"pointer",color:T.accent}}>
+                          Cadastrar cliente antes?
+                        </span>
+                      </div>
+                  }
+                </div>
+              )}
+            </div>
             <Fld T={T} label="Telefone / WhatsApp" value={form.telefone} onChange={v=>setForm(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
             <Fld T={T} label="Nº do Processo" value={form.numeroProcesso} onChange={v=>setForm(d=>({...d,numeroProcesso:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Área de Atuação" value={form.areaAtuacao} onChange={v=>setForm(d=>({...d,areaAtuacao:v}))} options={AREAS}/></div>
@@ -769,16 +819,18 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
 function TabRelatorio({T,contracts,manual,costs}){
   const now=new Date();
   const [anoSel,setAnoSel]=useState(now.getFullYear());
-  const [meses,setMeses]=useState([0,1,2,3,4,5,6,7,8,9,10,11]); // indices 0-11
+  const [mesPie,setMesPie]=useState(now.getMonth()+1);
+  const [meses,setMeses]=useState([0,1,2,3,4,5,6,7,8,9,10,11]);
   const chartRef=useRef(null);
   const chartInst=useRef(null);
+  const pieRecRef=useRef(null);const pieRecInst=useRef(null);
+  const pieCustRef=useRef(null);const pieCustInst=useRef(null);
   const years=Array.from({length:5},(_,i)=>now.getFullYear()-2+i);
 
   function togMes(i){setMeses(m=>m.includes(i)?m.filter(x=>x!==i):[...m,i].sort((a,b)=>a-b));}
   function selAll(){setMeses([0,1,2,3,4,5,6,7,8,9,10,11]);}
   function selNone(){setMeses([]);}
 
-  // compute data per month
   const labels=meses.map(m=>MFS[m]);
   const entradas=meses.map(m=>{
     const s=contracts.flatMap(c=>(c.schedule||[]).filter(x=>x.mes===m+1&&x.ano===anoSel&&x.pago)).reduce((a,e)=>a+fmtN(e.valor),0);
@@ -787,25 +839,47 @@ function TabRelatorio({T,contracts,manual,costs}){
   });
   const saidas=meses.map(m=>costs.filter(c=>c.mes===m+1&&c.ano===anoSel).reduce((a,c)=>a+fmtN(c.valor),0));
   const saldos=entradas.map((e,i)=>e-saidas[i]);
-
   const totEnt=entradas.reduce((s,v)=>s+v,0);
   const totSai=saidas.reduce((s,v)=>s+v,0);
   const totSal=totEnt-totSai;
 
+  // dados pizza — mês selecionado
+  const PIE_COLORS=["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899","#f97316","#6366f1","#84cc16","#14b8a6","#94a3b8","#d946ef","#0ea5e9"];
+  const pieRec={};
+  contracts.flatMap(c=>(c.schedule||[]).filter(x=>x.mes===mesPie&&x.ano===anoSel&&x.pago).map(x=>({...x,area:c.areaAtuacao}))).forEach(x=>{pieRec[x.area]=(pieRec[x.area]||0)+fmtN(x.valor);});
+  manual.filter(p=>p.mes===mesPie&&p.ano===anoSel&&p.pago).forEach(p=>{const k=p.areaAtuacao||"Manual";pieRec[k]=(pieRec[k]||0)+fmtN(p.valor);});
+  const pieCust={};
+  costs.filter(c=>c.mes===mesPie&&c.ano===anoSel).forEach(c=>{pieCust[c.categoria]=(pieCust[c.categoria]||0)+fmtN(c.valor);});
+
+  function makePie(ref,inst,dataObj,title){
+    if(!ref.current)return;
+    if(inst.current)inst.current.destroy();
+    const keys=Object.keys(dataObj);const vals=keys.map(k=>dataObj[k]);
+    if(keys.length===0){inst.current=null;return;}
+    inst.current=new Chart(ref.current,{
+      type:"doughnut",
+      data:{labels:keys,datasets:[{data:vals,backgroundColor:keys.map((_,i)=>PIE_COLORS[i%PIE_COLORS.length]),borderColor:T.card,borderWidth:2,hoverOffset:8}]},
+      options:{
+        responsive:true,maintainAspectRatio:false,cutout:"55%",
+        plugins:{
+          legend:{position:"bottom",labels:{color:T.chartText,font:{family:"'DM Mono',monospace",size:11},boxWidth:12,padding:12}},
+          tooltip:{backgroundColor:T.card,borderColor:T.border,borderWidth:1,titleColor:T.strong,bodyColor:T.muted,callbacks:{label:ctx=>` ${ctx.label}: ${fmt(ctx.raw)} (${Math.round(ctx.raw/vals.reduce((a,b)=>a+b,0)*100)}%)`}},
+          title:{display:true,text:title,color:T.muted,font:{family:"'DM Mono',monospace",size:11},padding:{bottom:8}},
+        },
+      },
+    });
+  }
+
   useEffect(()=>{
     if(!chartRef.current||meses.length===0)return;
     if(chartInst.current)chartInst.current.destroy();
-    const isDark=T.id==="dark";
     chartInst.current=new Chart(chartRef.current,{
       type:"line",
-      data:{
-        labels,
-        datasets:[
-          {label:"Entradas",data:entradas,borderColor:"#10b981",backgroundColor:"#10b98122",fill:true,tension:.35,pointRadius:5,pointBackgroundColor:"#10b981",borderWidth:2.5},
-          {label:"Saídas",data:saidas,borderColor:"#ef4444",backgroundColor:"#ef444422",fill:true,tension:.35,pointRadius:5,pointBackgroundColor:"#ef4444",borderWidth:2.5},
-          {label:"Saldo",data:saldos,borderColor:T.accent,backgroundColor:"transparent",fill:false,tension:.35,pointRadius:4,pointBackgroundColor:T.accent,borderWidth:2,borderDash:[6,3]},
-        ],
-      },
+      data:{labels,datasets:[
+        {label:"Entradas",data:entradas,borderColor:"#10b981",backgroundColor:"#10b98122",fill:true,tension:.35,pointRadius:5,pointBackgroundColor:"#10b981",borderWidth:2.5},
+        {label:"Saídas",data:saidas,borderColor:"#ef4444",backgroundColor:"#ef444422",fill:true,tension:.35,pointRadius:5,pointBackgroundColor:"#ef4444",borderWidth:2.5},
+        {label:"Saldo",data:saldos,borderColor:T.accent,backgroundColor:"transparent",fill:false,tension:.35,pointRadius:4,pointBackgroundColor:T.accent,borderWidth:2,borderDash:[6,3]},
+      ]},
       options:{
         responsive:true,maintainAspectRatio:false,
         interaction:{mode:"index",intersect:false},
@@ -821,6 +895,16 @@ function TabRelatorio({T,contracts,manual,costs}){
     });
     return()=>{if(chartInst.current)chartInst.current.destroy();};
   },[meses,anoSel,contracts,manual,costs,T]);
+
+  useEffect(()=>{
+    makePie(pieRecRef,pieRecInst,pieRec,`Receitas por Área — ${MFL[mesPie-1]} ${anoSel}`);
+    return()=>{if(pieRecInst.current)pieRecInst.current.destroy();};
+  },[mesPie,anoSel,contracts,manual,T]);
+
+  useEffect(()=>{
+    makePie(pieCustRef,pieCustInst,pieCust,`Custos por Categoria — ${MFL[mesPie-1]} ${anoSel}`);
+    return()=>{if(pieCustInst.current)pieCustInst.current.destroy();};
+  },[mesPie,anoSel,costs,T]);
 
   return(
     <div>
@@ -862,7 +946,28 @@ function TabRelatorio({T,contracts,manual,costs}){
         </div>
       </div>
 
-      {/* chart */}
+      {/* pizza — mês */}
+      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:"18px 20px",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:T.muted,fontWeight:500}}>Distribuição por mês:</span>
+          <select value={mesPie} onChange={e=>setMesPie(Number(e.target.value))} style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:7,padding:"5px 12px",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600,cursor:"pointer"}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
+          <span style={{fontSize:11,color:T.muted}}>{anoSel}</span>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          <div>
+            {Object.keys(pieRec).length===0
+              ?<div style={{textAlign:"center",color:T.muted,padding:"40px 0",fontSize:12}}>Sem receitas em {MFL[mesPie-1]}</div>
+              :<div style={{height:280,position:"relative"}}><canvas ref={pieRecRef}/></div>}
+          </div>
+          <div>
+            {Object.keys(pieCust).length===0
+              ?<div style={{textAlign:"center",color:T.muted,padding:"40px 0",fontSize:12}}>Sem custos em {MFL[mesPie-1]}</div>
+              :<div style={{height:280,position:"relative"}}><canvas ref={pieCustRef}/></div>}
+          </div>
+        </div>
+      </div>
+
+      {/* chart linha */}
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:"20px 20px 16px"}}>
         <div style={{fontSize:12,color:T.muted,marginBottom:12,fontWeight:500}}>Entradas × Saídas × Saldo — {anoSel}</div>
         {meses.length===0
@@ -900,7 +1005,7 @@ function TabRelatorio({T,contracts,manual,costs}){
 /* ═══════════════════════════════════════════════════════
    TAB CLIENTES — cadastro manual + flag débito
 ═══════════════════════════════════════════════════════ */
-const newCli=()=>({id:null,nome:"",cpf:"",endereco:"",celular:"",email:""});
+const newCli=()=>({id:null,seq:null,nome:"",cpf:"",endereco:"",celular:"",email:"",obs:""});
 function TabClientes({T,contracts,manual,clientes,setClientes,setTab}){
   const [busca,setBusca]=useState("");
   const [showForm,setShowForm]=useState(false);
@@ -929,15 +1034,18 @@ function TabClientes({T,contracts,manual,clientes,setClientes,setTab}){
     return{...cl,valorTotal,valorRecebido,processos,emDebito};
   });
 
-  const filtered=enriched.filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase())||c.cpf?.includes(busca));
+  const filtered=enriched.filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase())||c.cpf?.includes(busca)||(c.seq!=null&&String(c.seq).includes(busca)));
+
+  // próximo número sequencial
+  const nextSeq=clientes.length>0?Math.max(...clientes.map(c=>c.seq||0))+1:1;
 
   function saveForm(){
     if(!form.nome)return;
     if(editId){setClientes(p=>p.map(c=>c.id===editId?{...form,id:editId}:c));}
-    else setClientes(p=>[...p,{...form,id:genId()}]);
+    else setClientes(p=>[...p,{...form,id:genId(),seq:nextSeq}]);
     setForm(newCli());setEditId(null);setShowForm(false);
   }
-  function editCli(cl){setForm({id:cl.id,nome:cl.nome,cpf:cl.cpf||"",endereco:cl.endereco||"",celular:cl.celular||"",email:cl.email||""});setEditId(cl.id);setShowForm(true);}
+  function editCli(cl){setForm({id:cl.id,seq:cl.seq,nome:cl.nome,cpf:cl.cpf||"",endereco:cl.endereco||"",celular:cl.celular||"",email:cl.email||"",obs:cl.obs||""});setEditId(cl.id);setShowForm(true);}
   function delCli(id){if(!confirm("Remover cliente?"))return;setClientes(p=>p.filter(c=>c.id!==id));}
 
   return(
@@ -959,6 +1067,7 @@ function TabClientes({T,contracts,manual,clientes,setClientes,setTab}){
             <Fld T={T} label="Celular / WhatsApp" value={form.celular} onChange={v=>setForm(d=>({...d,celular:v}))} ph="(00) 00000-0000"/>
             <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Endereço" value={form.endereco} onChange={v=>setForm(d=>({...d,endereco:v}))}/></div>
             <div style={{gridColumn:"1/-1"}}><Fld T={T} label="E-mail" value={form.email} onChange={v=>setForm(d=>({...d,email:v}))} ph="cliente@email.com"/></div>
+            <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Observações" value={form.obs||""} onChange={v=>setForm(d=>({...d,obs:v}))} type="textarea"/></div>
           </div>
           <div style={{display:"flex",gap:8}}><Btn T={T} variant="secondary" onClick={()=>{setShowForm(false);setEditId(null);}}>Cancelar</Btn><Btn T={T} onClick={saveForm}>💾 Salvar</Btn></div>
         </div>
@@ -969,11 +1078,14 @@ function TabClientes({T,contracts,manual,clientes,setClientes,setTab}){
         ?<div style={{textAlign:"center",color:T.muted,padding:"60px 0"}}><div style={{fontSize:36,marginBottom:12}}>👥</div>{clientes.length===0?"Nenhum cliente cadastrado.":"Nenhum cliente encontrado."}</div>
         :<div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${T.border}`}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr style={{background:T.card2}}>{["","Nome","Celular","Processos",""].map(h=><th key={h} style={{padding:"9px 14px",textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,fontWeight:500}}>{h}</th>)}</tr></thead>
+            <thead><tr style={{background:T.card2}}>{["#","","Nome","Celular","Processos",""].map(h=><th key={h} style={{padding:"9px 14px",textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,fontWeight:500}}>{h}</th>)}</tr></thead>
             <tbody>
               {filtered.map((cl,i)=>{
                 return(
                   <tr key={cl.id} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
+                    <td style={{padding:"10px 14px",width:40}}>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,fontWeight:600}}>#{cl.seq||"—"}</span>
+                    </td>
                     <td style={{padding:"10px 14px",width:28}}>
                       {cl.emDebito&&<span title="Cliente com débito pendente" style={{fontSize:14}}>🔴</span>}
                     </td>
@@ -1209,6 +1321,7 @@ function App(){
   const [fbLoaded, setFbLoaded] = useState(false);
   const [fbSaving, setFbSaving] = useState(false);
   const [fbError,  setFbError]  = useState(null);
+  const [lastSync, setLastSync] = useState(null);
   const saveTimeout    = useRef(null);
   const fbPending      = useRef(0);      // conta quantos setState do onSnapshot ainda não foram processados
 
@@ -1273,6 +1386,7 @@ function App(){
                        });
         setFbSaving(false);
         setFbError(null);
+        setLastSync(new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
       }catch(e){
         setFbSaving(false);
         setFbError(e.message || "Erro ao salvar");
@@ -1288,6 +1402,7 @@ function App(){
   const cloudMsg = !fbLoaded ? "☁️ conectando..."
                  : fbError   ? "⚠️ offline"
                  : fbSaving  ? "☁️ salvando..."
+                 : lastSync  ? `☁️ sincronizado às ${lastSync}`
                  :             "☁️ sincronizado";
   const cloudColor = fbError   ? "#f87171"
                    : fbSaving  ? "#fbbf24"
@@ -1358,7 +1473,7 @@ function App(){
             ☁️ conectando...
           </div>
           :tab==="contratos" ?<TabContratos T={T} contracts={contracts} setContracts={setContracts}/>
-          :tab==="pagamentos"?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual}/>
+          :tab==="pagamentos"?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual} clientes={clientes} setTab={setTab}/>
           :tab==="custos"    ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
           :tab==="clientes"  ?<TabClientes T={T} contracts={contracts} manual={manual} clientes={clientes} setClientes={setClientes} setTab={setTab}/>
           :tab==="links"     ?<TabLinks T={T}/>
