@@ -20,12 +20,12 @@
        Firebase Console → Configurações → Seus apps
     ════════════════════════════════════════════ */
     var FIREBASE_CONFIG = {
-      apiKey:            "COLE_AQUI_apiKey",
-      authDomain:        "COLE_AQUI_authDomain",
-      projectId:         "COLE_AQUI_projectId",
-      storageBucket:     "COLE_AQUI_storageBucket",
-      messagingSenderId: "COLE_AQUI_messagingSenderId",
-      appId:             "COLE_AQUI_appId",
+      apiKey: "AIzaSyDbTPc2dJ-4nZHL5nVwZFyfxBsA92s1Tzw",
+      authDomain: "escritorioju2.firebaseapp.com",
+      projectId: "escritorioju2",
+      storageBucket: "escritorioju2.firebasestorage.app",
+      messagingSenderId: "29136072854",
+      appId: "1:29136072854:web:86a1d93e2373c79e2952b7",
     };
     /* ════════════════════════════════════════════
        🏢 ID DO ESCRITÓRIO  (mesmo valor em todos
@@ -375,6 +375,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
   const now=new Date();
   const [mes,setMes]=useState(now.getMonth()+1);const [ano,setAno]=useState(now.getFullYear());
   const [showForm,setShowForm]=useState(false);const [form,setForm]=useState(newP());const [editId,setEditId]=useState(null);
+  const [copied,setCopied]=useState(null);
   const years=Array.from({length:6},(_,i)=>now.getFullYear()-2+i);
 
   const schedE=contracts.flatMap(c=>(c.schedule||[]).filter(s=>s.mes===mes&&s.ano===ano).map(s=>({...s,_t:"s",contrato:c})));
@@ -450,7 +451,6 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
           <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"✏ Editar":"+ Novo Pagamento Manual"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
             <Fld T={T} label="Cliente" value={form.cliente} onChange={v=>setForm(d=>({...d,cliente:v}))}/>
-            <Fld T={T} label="Advogado" value={form.advogado} onChange={v=>setForm(d=>({...d,advogado:v}))}/>
             <Fld T={T} label="Telefone / WhatsApp" value={form.telefone} onChange={v=>setForm(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
             <Fld T={T} label="Nº do Processo" value={form.numeroProcesso} onChange={v=>setForm(d=>({...d,numeroProcesso:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Área de Atuação" value={form.areaAtuacao} onChange={v=>setForm(d=>({...d,areaAtuacao:v}))} options={AREAS}/></div>
@@ -460,9 +460,17 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
             <Fld T={T} label="Ano" value={form.ano} onChange={v=>setForm(d=>({...d,ano:Number(v)}))} type="number"/>
             <Fld T={T} label="Forma de Pagamento" value={form.formaPagamento} onChange={v=>setForm(d=>({...d,formaPagamento:v}))} options={FORMAS}/>
             <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:22}}><input type="checkbox" checked={form.pago} onChange={e=>setForm(d=>({...d,pago:e.target.checked}))} style={{accentColor:T.accent,width:16,height:16,cursor:"pointer"}}/><label style={{fontSize:12,color:T.text,cursor:"pointer"}}>Já recebido</label></div>
-            <div style={{gridColumn:"1/-1",display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
-              <input type="checkbox" checked={form.parceria||false} onChange={e=>setForm(d=>({...d,parceria:e.target.checked,parceiroNome:"",parceiroPerc:""}))} style={{accentColor:T.accent,width:16,height:16,cursor:"pointer"}}/>
-              <label style={{fontSize:12,color:T.text,cursor:"pointer",fontWeight:600}}>Parceria com outro advogado</label>
+            {/* Juliana solo ou parceria */}
+            <div style={{gridColumn:"1/-1",background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+              <span style={{fontSize:12,color:T.accent,fontWeight:700}}>⚖️ Juliana</span>
+              <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}>
+                <input type="radio" name="modo" checked={!form.parceria} onChange={()=>setForm(d=>({...d,parceria:false,parceiroNome:"",parceiroPerc:""}))} style={{accentColor:T.accent,cursor:"pointer"}}/>
+                Solo
+              </label>
+              <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}>
+                <input type="radio" name="modo" checked={!!form.parceria} onChange={()=>setForm(d=>({...d,parceria:true}))} style={{accentColor:T.accent,cursor:"pointer"}}/>
+                Parceria
+              </label>
             </div>
             {form.parceria&&<>
               <Fld T={T} label="Nome do Parceiro" value={form.parceiroNome||""} onChange={v=>setForm(d=>({...d,parceiroNome:v}))} ph="Nome do advogado parceiro"/>
@@ -521,7 +529,10 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
                           {/* processo */}
                           {(isSch?c.numeroProcesso:e.numeroProcesso)&&<div style={{display:"flex",alignItems:"center",gap:4,marginRight:16,marginBottom:4}}>
                             <span style={{fontSize:10,color:T.muted}}>📋</span>
-                            <span title="Clique para copiar" onClick={()=>{const num=isSch?c.numeroProcesso:e.numeroProcesso;navigator.clipboard.writeText(num).catch(()=>{});}} style={{fontSize:11,color:T.infoText,fontFamily:"'DM Mono',monospace",cursor:"pointer",textDecoration:"underline dotted"}}>{isSch?c.numeroProcesso:e.numeroProcesso}</span>
+                            <span title="Clique para copiar" onClick={()=>{const num=isSch?c.numeroProcesso:e.numeroProcesso;navigator.clipboard.writeText(num).catch(()=>{});setCopied(num);setTimeout(()=>setCopied(null),1800);}}
+                              style={{fontSize:11,color:copied===(isSch?c.numeroProcesso:e.numeroProcesso)?T.successText:T.infoText,fontFamily:"'DM Mono',monospace",cursor:"pointer",textDecoration:"underline dotted",fontWeight:copied===(isSch?c.numeroProcesso:e.numeroProcesso)?700:400,transition:"color .2s"}}>
+                              {copied===(isSch?c.numeroProcesso:e.numeroProcesso)?"✅ Copiado!":(isSch?c.numeroProcesso:e.numeroProcesso)}
+                            </span>
                           </div>}
                           {/* descrição */}
                           {e.descricao&&<div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
@@ -1037,7 +1048,7 @@ function TabLinks({T}){
 ═══════════════════════════════════════════════════════ */
 function App(){
   /* ── 1. Estados da UI ─────────────────────────────── */
-  const [themeId,setThemeId]     = useState("industrial");
+  const [themeId,setThemeId]     = useState("light");
   const [tab,setTab]             = useState("contratos");
   const [contracts,setContracts] = useState([]);
   const [costs,setCosts]         = useState([]);
@@ -1049,7 +1060,7 @@ function App(){
   const [fbSaving, setFbSaving] = useState(false);
   const [fbError,  setFbError]  = useState(null);
   const saveTimeout    = useRef(null);
-  const loadingFromFb  = useRef(false);  // true enquanto onSnapshot processa dados
+  const fbPending      = useRef(0);      // conta quantos setState do onSnapshot ainda não foram processados
 
   const T = THEMES[themeId];
 
@@ -1062,8 +1073,8 @@ function App(){
                              .collection("data").doc("main");
     const unsub = docRef.onSnapshot(
       snap => {
-        loadingFromFb.current = true;     // sinaliza: esta mudança veio do Firebase
-        if(snap.exists){                  // compat SDK: propriedade booleana, NÃO método
+        fbPending.current += 1;           // incrementa antes dos setState
+        if(snap.exists){
           const d = snap.data();
           if(Array.isArray(d.contracts))  setContracts(d.contracts);
           if(Array.isArray(d.costs))      setCosts(d.costs);
@@ -1089,9 +1100,9 @@ function App(){
   useEffect(()=>{
     if(!fbLoaded) return;
 
-    // Dado veio do Firebase (onSnapshot)? Pula e reseta.
-    if(loadingFromFb.current){
-      loadingFromFb.current = false;
+    // Dado veio do Firebase (onSnapshot)? Decrementa e pula este save.
+    if(fbPending.current > 0){
+      fbPending.current -= 1;
       return;
     }
 
