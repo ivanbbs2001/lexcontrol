@@ -19,7 +19,7 @@
        🔧 FIREBASE — preencha com seus valores
        Firebase Console → Configurações → Seus apps
     ════════════════════════════════════════════ */
-    var FIREBASE_CONFIG = {
+     var FIREBASE_CONFIG = {
       apiKey: "AIzaSyDbTPc2dJ-4nZHL5nVwZFyfxBsA92s1Tzw",
       authDomain: "escritorioju2.firebaseapp.com",
       projectId: "escritorioju2",
@@ -133,10 +133,37 @@ const STATUS_CFG={
   pago:         {label:"Pago",                   icon:"✅",color:"#10b981"},
   pago_pendente:{label:"Pago · Serviço Pendente",icon:"⚠️",color:"#a78bfa"},
 };
-const AI_PROMPT=`Você é especialista em contratos jurídicos brasileiros.
-Retorne SOMENTE JSON válido, sem texto extra, sem markdown:
-{"advogado":"","cliente":"","telefone":"","numeroProcesso":"","areaAtuacao":"Cível","valorTotal":"8500.00","formaPagamento":"","totalParcelas":"3","valorParcela":"2833.33","prazos":"","observacoes":""}
-Se não encontrar, deixe como string vazia.`;
+const AI_PROMPT=`Você é especialista em contratos jurídicos brasileiros. Analise o contrato e retorne SOMENTE JSON válido, sem texto extra, sem markdown, sem comentários.
+
+Estrutura obrigatória:
+{
+  "cliente": "",
+  "telefone": "",
+  "numeroProcesso": "",
+  "areaAtuacao": "Cível",
+  "valorTotal": "1621.00",
+  "formaPagamento": "PIX",
+  "totalParcelas": "10",
+  "valorParcela": "162.10",
+  "prazos": "",
+  "observacoes": "",
+  "schedule": [
+    {"mes": 3, "ano": 2026, "valor": 162.10, "descricao": "Parcela 1/10", "pago": false}
+  ]
+}
+
+Regras de extração:
+- valorTotal: valor total dos honorários em decimal (ex: "1621.00")
+- formaPagamento: meio de pagamento mencionado (PIX, Boleto, Transferência, Dinheiro, Cartão de Crédito, etc)
+- totalParcelas: número de parcelas como string (use "1" se for à vista)
+- valorParcela: valor de cada parcela em decimal; se à vista, igual ao valorTotal
+- schedule: array com UMA entrada por parcela, cada uma com mes (1-12), ano (YYYY), valor (número decimal), descricao ("Parcela N/TOTAL"), pago (false)
+  - Se o contrato diz "em todo dia 10 de cada mês, iniciando-se em 10/03/2026" com 10 parcelas: gere 10 entradas a partir de março/2026, avançando um mês por parcela
+  - Se for à vista (pagamento único): gere schedule com 1 entrada usando a data mencionada ou o mês atual
+  - Se não houver data específica: use o mês/ano atual como início
+- prazos: prazo de entrega do serviço ou outras datas relevantes (não de pagamento)
+- observacoes: cláusulas relevantes como multa por atraso, juros, etc
+- Se não encontrar um campo, deixe como string vazia "" (exceto schedule que deve ser array)`;
 
 /* ═══════════════════════════════════════════════════════
    HELPERS
@@ -316,10 +343,14 @@ function TabContratos({T,contracts,setContracts}){
       if(isPdf){setLoadMsg("Enviando para IA...");const b64=await new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result.split(",")[1]);x.onerror=j;x.readAsDataURL(file);});messages=[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},{type:"text",text:AI_PROMPT}]}];}
       else{setLoadMsg("Extraindo Word...");const text=await new Promise((r,j)=>{const x=new FileReader();x.onload=async e=>{try{r((await mammoth.extractRawText({arrayBuffer:e.target.result})).value);}catch(err){j(err);}};x.onerror=j;x.readAsArrayBuffer(file);});messages=[{role:"user",content:`${AI_PROMPT}\n\n---\n${text}`}];}
       setLoadMsg("IA analisando...");
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.ANT,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,messages})});
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.ANT,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages})});
       const data=await res.json();const txt=data.content?.find(b=>b.type==="text")?.text??"{}";
       const p=JSON.parse(txt.replace(/```json|```/g,"").trim());
-      setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:p.advogado||ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||""},...prev]);
+      // normaliza schedule: garante id em cada entrada
+      const parsedSchedule=Array.isArray(p.schedule)
+        ?p.schedule.map((s,i)=>({id:genId()+i,mes:Number(s.mes)||1,ano:Number(s.ano)||new Date().getFullYear(),valor:parseFloat(s.valor)||0,descricao:s.descricao||`Parcela ${i+1}/${p.totalParcelas||1}`,pago:false}))
+        :[];
+      setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||"",schedule:parsedSchedule,status:parsedSchedule.length>0?"em_pagamento":"pendente"},...prev]);
     }catch(e){setError(e.message||"Erro.");}finally{setLoading(false);setLoadMsg("");}
   }
   function saveNew(){if(!nd.cliente)return;setContracts(p=>[{...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")},...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});}
