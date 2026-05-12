@@ -133,37 +133,49 @@ const STATUS_CFG={
   pago:         {label:"Pago",                   icon:"✅",color:"#10b981"},
   pago_pendente:{label:"Pago · Serviço Pendente",icon:"⚠️",color:"#a78bfa"},
 };
-const AI_PROMPT=`Você é especialista em contratos jurídicos brasileiros. Analise o contrato e retorne SOMENTE JSON válido, sem texto extra, sem markdown, sem comentários.
+const AI_PROMPT=`Você é especialista em contratos jurídicos brasileiros. Analise o contrato e extraia os dados de honorários. Retorne SOMENTE JSON válido, sem texto extra, sem markdown, sem comentários.
 
-Estrutura obrigatória:
+ESTRUTURA OBRIGATÓRIA:
 {
-  "cliente": "",
-  "telefone": "",
+  "cliente": "nome completo do contratante",
+  "telefone": "telefone do contratante (não do advogado)",
   "numeroProcesso": "",
   "areaAtuacao": "Cível",
-  "valorTotal": "1621.00",
+  "valorTotal": "7000.00",
   "formaPagamento": "PIX",
-  "totalParcelas": "10",
-  "valorParcela": "162.10",
+  "totalParcelas": "3",
+  "valorParcela": "",
   "prazos": "",
-  "observacoes": "",
+  "observacoes": "multa 10% + juros 1%/mês por atraso",
   "schedule": [
-    {"mes": 3, "ano": 2026, "valor": 162.10, "descricao": "Parcela 1/10", "pago": false}
+    {"mes": 3, "ano": 2026, "valor": 1500.00, "descricao": "Parcela 1 — Supressão de registro", "pago": false},
+    {"mes": 4, "ano": 2026, "valor": 1500.00, "descricao": "Parcela 2 — Supressão de registro", "pago": false},
+    {"mes": 3, "ano": 2026, "valor": 4000.00, "descricao": "Parcela única — Inventário extrajudicial", "pago": false}
   ]
 }
 
-Regras de extração:
-- valorTotal: valor total dos honorários em decimal (ex: "1621.00")
-- formaPagamento: meio de pagamento mencionado (PIX, Boleto, Transferência, Dinheiro, Cartão de Crédito, etc)
-- totalParcelas: número de parcelas como string (use "1" se for à vista)
-- valorParcela: valor de cada parcela em decimal; se à vista, igual ao valorTotal
-- schedule: array com UMA entrada por parcela, cada uma com mes (1-12), ano (YYYY), valor (número decimal), descricao ("Parcela N/TOTAL"), pago (false)
-  - Se o contrato diz "em todo dia 10 de cada mês, iniciando-se em 10/03/2026" com 10 parcelas: gere 10 entradas a partir de março/2026, avançando um mês por parcela
-  - Se for à vista (pagamento único): gere schedule com 1 entrada usando a data mencionada ou o mês atual
-  - Se não houver data específica: use o mês/ano atual como início
-- prazos: prazo de entrega do serviço ou outras datas relevantes (não de pagamento)
-- observacoes: cláusulas relevantes como multa por atraso, juros, etc
-- Se não encontrar um campo, deixe como string vazia "" (exceto schedule que deve ser array)`;
+REGRAS DE EXTRAÇÃO:
+
+1. cliente: nome do CONTRATANTE (quem contrata, não o advogado)
+2. telefone: telefone do CONTRATANTE (não da advogada)
+3. valorTotal: SOMA de todos os honorários mencionados no contrato (número decimal sem símbolo)
+4. formaPagamento: meio de pagamento (PIX, Boleto, Transferência, etc.)
+5. totalParcelas: número total de entradas no schedule (como string)
+6. valorParcela: deixe vazio "" se as parcelas têm valores diferentes; preencha só se todas forem iguais
+
+7. schedule — UMA ENTRADA POR PAGAMENTO:
+   - Se o contrato diz datas explícitas ("18/03/2026 e 18/04/2026"): use exatamente essas datas
+   - Se diz "dia X de cada mês iniciando em DD/MM/AAAA": gere N entradas, uma por mês, a partir daquela data
+   - Se diz "parcela única até X": use a data mencionada (ou mês atual se não houver data)
+   - Se houver múltiplos serviços com condições diferentes: gere entradas separadas para cada pagamento
+   - descricao: descreva brevemente a qual serviço/parcela se refere
+   - mes: número do mês (1-12), ano: número do ano (ex: 2026), valor: decimal, pago: false
+
+8. observacoes: multas, juros, correção monetária e outras cláusulas financeiras relevantes
+9. prazos: prazos de execução do serviço (não de pagamento)
+10. areaAtuacao: identifique a área jurídica (Cível, Família e Sucessões, Trabalhista, etc.)
+
+Se não encontrar um campo, use string vazia "" (exceto schedule que deve ser array vazio []).`;
 
 /* ═══════════════════════════════════════════════════════
    HELPERS
@@ -343,9 +355,13 @@ function TabContratos({T,contracts,setContracts}){
       if(isPdf){setLoadMsg("Enviando para IA...");const b64=await new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result.split(",")[1]);x.onerror=j;x.readAsDataURL(file);});messages=[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},{type:"text",text:AI_PROMPT}]}];}
       else{setLoadMsg("Extraindo Word...");const text=await new Promise((r,j)=>{const x=new FileReader();x.onload=async e=>{try{r((await mammoth.extractRawText({arrayBuffer:e.target.result})).value);}catch(err){j(err);}};x.onerror=j;x.readAsArrayBuffer(file);});messages=[{role:"user",content:`${AI_PROMPT}\n\n---\n${text}`}];}
       setLoadMsg("IA analisando...");
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.ANT,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages})});
-      const data=await res.json();const txt=data.content?.find(b=>b.type==="text")?.text??"{}";
-      const p=JSON.parse(txt.replace(/```json|```/g,"").trim());
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.ANT,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system:"Você extrai dados de contratos jurídicos brasileiros e retorna APENAS JSON válido, sem nenhum texto adicional, sem markdown, sem blocos de código.",messages})});
+      const data=await res.json();
+      if(data.error)throw new Error("API: "+data.error.message);
+      const txt=data.content?.find(b=>b.type==="text")?.text??"{}";
+      let p;
+      try{p=JSON.parse(txt.replace(/```json|```/g,"").trim());}
+      catch(parseErr){throw new Error("IA não retornou JSON válido. Resposta recebida: "+txt.slice(0,200));}
       // normaliza schedule: garante id em cada entrada
       const parsedSchedule=Array.isArray(p.schedule)
         ?p.schedule.map((s,i)=>({id:genId()+i,mes:Number(s.mes)||1,ano:Number(s.ano)||new Date().getFullYear(),valor:parseFloat(s.valor)||0,descricao:s.descricao||`Parcela ${i+1}/${p.totalParcelas||1}`,pago:false}))
