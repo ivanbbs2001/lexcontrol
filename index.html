@@ -206,11 +206,15 @@ function CForm({T,data,set,nA,sA,nS,sS}){
   function togS(sid){set(d=>({...d,schedule:d.schedule.map(s=>s.id===sid?{...s,pago:!s.pago}:s)}));}
   function remS(sid){set(d=>({...d,schedule:d.schedule.filter(s=>s.id!==sid)}));}
   const coSum=(data.coAdvogados||[]).reduce((s,a)=>s+fmtN(a.percentual),0);
+  const hasParceria=(data.coAdvogados||[]).length>0;
+  // validação: soma do cronograma vs valor total
+  const schedTotal=(data.schedule||[]).reduce((s,p)=>s+fmtN(p.valor),0);
+  const vTotal=fmtN(data.valorTotal);
+  const schedDiff=vTotal>0&&schedTotal>0&&Math.abs(schedTotal-vTotal)>0.01;
   return(
     <div>
       <SecTitle T={T}>Dados do Processo</SecTitle>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-        <Fld T={T} label="Advogado Responsável" value={data.advogado} onChange={v=>set(d=>({...d,advogado:v}))}/>
         <Fld T={T} label="Cliente" value={data.cliente} onChange={v=>set(d=>({...d,cliente:v}))}/>
         <Fld T={T} label="Telefone / WhatsApp" value={data.telefone||""} onChange={v=>set(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
         <Fld T={T} label="Nº do Processo" value={data.numeroProcesso||""} onChange={v=>set(d=>({...d,numeroProcesso:v}))} ph="0000000-00.0000.0.00.0000"/>
@@ -226,24 +230,40 @@ function CForm({T,data,set,nA,sA,nS,sS}){
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Observações" value={data.observacoes} onChange={v=>set(d=>({...d,observacoes:v}))} type="textarea"/></div>
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Status" value={data.status} onChange={v=>set(d=>({...d,status:v}))} options={Object.entries(STATUS_CFG).map(([k,v])=>({v:k,l:`${v.icon} ${v.label}`}))}/></div>
       </div>
-      <SecTitle T={T}>Co-advogados</SecTitle>
-      <div style={{marginBottom:16}}>
-        {(data.coAdvogados||[]).map(a=>(
-          <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,background:T.card2,borderRadius:7,padding:"7px 10px"}}>
-            <span style={{flex:1,color:T.infoText}}>{a.nome}</span>
-            <span style={{color:T.accent,fontWeight:600}}>{a.percentual}%</span>
-            <span style={{color:T.muted,fontSize:11}}>{fmt(fmtN(data.valorTotal)*fmtN(a.percentual)/100)}</span>
-            <button className="bhov" onClick={()=>remA(a.id)} style={{background:"none",border:"none",color:T.dangerText,fontSize:14}}>✕</button>
-          </div>
-        ))}
-        {(data.coAdvogados||[]).length>0&&<div style={{background:T.successBg,borderRadius:7,padding:"7px 10px",fontSize:12,color:T.successText,marginBottom:8}}>{data.advogado||"Adv. Principal"}: {100-coSum}% = {fmt(fmtN(data.valorTotal)*(100-coSum)/100)}</div>}
-        <div style={{display:"flex",gap:8}}>
-          <input placeholder="Nome" value={nA.nome} onChange={e=>sA(d=>({...d,nome:e.target.value}))} style={{flex:1,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
-          <input placeholder="%" value={nA.pct} onChange={e=>sA(d=>({...d,pct:e.target.value}))} type="number" style={{width:70,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
-          <Btn T={T} variant="ghost" onClick={addA}>+ Add</Btn>
-        </div>
+      <SecTitle T={T}>Participação</SecTitle>
+      <div style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+        <span style={{fontSize:12,color:T.accent,fontWeight:700}}>⚖️ Juliana</span>
+        <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}>
+          <input type="radio" name="cform-modo" checked={!hasParceria} onChange={()=>set(d=>({...d,coAdvogados:[]}))} style={{accentColor:T.accent,cursor:"pointer"}}/>Solo
+        </label>
+        <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}>
+          <input type="radio" name="cform-modo" checked={hasParceria} onChange={()=>{if(!hasParceria)sA({nome:"",pct:""}); }} style={{accentColor:T.accent,cursor:"pointer"}}/>Parceria
+        </label>
       </div>
+      {hasParceria&&(
+        <div style={{marginBottom:16}}>
+          {(data.coAdvogados||[]).map(a=>(
+            <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,background:T.card2,borderRadius:7,padding:"7px 10px"}}>
+              <span style={{flex:1,color:T.infoText}}>{a.nome}</span>
+              <span style={{color:T.accent,fontWeight:600}}>{a.percentual}%</span>
+              <span style={{color:T.muted,fontSize:11}}>{fmt(fmtN(data.valorTotal)*fmtN(a.percentual)/100)}</span>
+              <button className="bhov" onClick={()=>remA(a.id)} style={{background:"none",border:"none",color:T.dangerText,fontSize:14}}>✕</button>
+            </div>
+          ))}
+          <div style={{background:T.successBg,borderRadius:7,padding:"7px 10px",fontSize:12,color:T.successText,marginBottom:8}}>Juliana: {100-coSum}% = {fmt(fmtN(data.valorTotal)*(100-coSum)/100)}</div>
+          <div style={{display:"flex",gap:8}}>
+            <input placeholder="Nome do parceiro" value={nA.nome} onChange={e=>sA(d=>({...d,nome:e.target.value}))} style={{flex:1,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+            <input placeholder="%" value={nA.pct} onChange={e=>sA(d=>({...d,pct:e.target.value}))} type="number" style={{width:70,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+            <Btn T={T} variant="ghost" onClick={addA}>+ Add</Btn>
+          </div>
+        </div>
+      )}
       <SecTitle T={T}>Cronograma de Pagamentos</SecTitle>
+      {schedDiff&&(
+        <div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.dangerText,borderRadius:7,padding:"8px 12px",marginBottom:10,fontSize:12,fontWeight:600}}>
+          ⚠ Divergência: soma das parcelas {fmt(schedTotal)} ≠ valor total {fmt(vTotal)} (diferença de {fmt(Math.abs(schedTotal-vTotal))})
+        </div>
+      )}
       {(data.schedule||[]).map(s=>(
         <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,background:s.pago?T.successBg:T.card2,borderRadius:7,padding:"7px 10px"}}>
           <input type="checkbox" checked={s.pago} onChange={()=>togS(s.id)} style={{cursor:"pointer"}}/>
@@ -620,6 +640,15 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
   const monthly=costs.filter(c=>c.mes===mes&&c.ano===ano);
   const years=Array.from({length:6},(_,i)=>now.getFullYear()-2+i);
 
+  // custos em aberto de meses anteriores
+  const hoje=new Date();const mesAtual=hoje.getMonth()+1;const anoAtual=hoje.getFullYear();
+  const vencidos=costs.filter(c=>{
+    if(c.pago)return false;
+    if(c.ano<anoAtual)return true;
+    if(c.ano===anoAtual&&c.mes<mesAtual)return true;
+    return false;
+  });
+
   // receita do mês: cronogramas pagos + pagamentos manuais pagos
   const schedRec=contracts.flatMap(c=>(c.schedule||[]).filter(s=>s.mes===mes&&s.ano===ano&&s.pago)).reduce((s,e)=>s+fmtN(e.valor),0);
   const manRec=manual.filter(p=>p.mes===mes&&p.ano===ano&&p.pago).reduce((s,p)=>s+fmtN(p.valor),0);
@@ -648,6 +677,11 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
         <select value={mes} onChange={e=>setMes(Number(e.target.value))} style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,padding:"7px 13px",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer"}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
         <select value={ano} onChange={e=>setAno(Number(e.target.value))} style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,padding:"7px 13px",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer"}}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select>
         <div style={{flex:1}}/>
+        {vencidos.length>0&&(
+          <div style={{background:T.dangerBg,border:`1px solid ${T.dangerText}55`,borderRadius:8,padding:"7px 14px",display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.dangerText,fontWeight:600}}>
+            🔴 {vencidos.length} custo{vencidos.length!==1?"s":""} em aberto de meses anteriores ({fmt(vencidos.reduce((s,c)=>s+fmtN(c.valor),0))})
+          </div>
+        )}
         <Btn T={T} onClick={()=>{setEditId(null);setForm({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes,ano,pago:false});setShowForm(true);}}>+ Novo Custo</Btn>
       </div>
 
@@ -981,62 +1015,178 @@ function TabClientes({T,contracts,manual,clientes,setClientes,setTab}){
 /* ═══════════════════════════════════════════════════════
    TAB LINKS ÚTEIS
 ═══════════════════════════════════════════════════════ */
-const LINKS_DATA=[
-  {tribunal:"STF",label:"Supremo Tribunal Federal",
-    pesquisa:{url:"https://jurisprudencia.stf.jus.br/pages/search",label:"Pesquisa de Jurisprudência"},
-    consulta:{url:"https://portal.stf.jus.br/processos/",label:"Consulta Processual"},
+const LINKS_SECTIONS=[
+  {
+    secao:"⚖️ Tribunais — Jurisprudência & Consulta Processual",
+    itens:[
+      {tribunal:"STF",label:"Supremo Tribunal Federal",links:[
+        {url:"https://jurisprudencia.stf.jus.br/pages/search",label:"Pesquisa de Jurisprudência",icon:"🔍"},
+        {url:"https://portal.stf.jus.br/processos/",label:"Consulta Processual",icon:"📋"},
+      ]},
+      {tribunal:"STJ",label:"Superior Tribunal de Justiça",links:[
+        {url:"https://scon.stj.jus.br/SCON/",label:"Pesquisa de Jurisprudência",icon:"🔍"},
+        {url:"https://processo.stj.jus.br/processo/pesquisa/",label:"Consulta Processual",icon:"📋"},
+      ]},
+      {tribunal:"TRF4",label:"Tribunal Regional Federal da 4ª Região",links:[
+        {url:"https://jurisprudencia.trf4.jus.br/pesquisa/pesquisa.php",label:"Pesquisa de Jurisprudência",icon:"🔍"},
+        {url:"https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=processo_seleciona_publica&acao_origem=processo_consulta_publica",label:"Consulta Processual (eProc)",icon:"📋"},
+      ]},
+      {tribunal:"JFPR",label:"Justiça Federal do Paraná",links:[
+        {url:"https://www.jfpr.jus.br/",label:"Portal JFPR",icon:"🏛"},
+        {url:"https://eproc.jfpr.jus.br/eprocV2/controlador.php?acao=processo_seleciona_publica&acao_origem=processo_consulta_publica",label:"Consulta Processual (eProc JFPR)",icon:"📋"},
+      ]},
+      {tribunal:"TJPR",label:"Tribunal de Justiça do Paraná",links:[
+        {url:"https://portal.tjpr.jus.br/jurisprudencia/",label:"Pesquisa de Jurisprudência",icon:"🔍"},
+        {url:"https://projudi.tjpr.jus.br/projudi/",label:"Consulta Processual (Projudi)",icon:"📋"},
+      ]},
+    ],
   },
-  {tribunal:"STJ",label:"Superior Tribunal de Justiça",
-    pesquisa:{url:"https://scon.stj.jus.br/SCON/",label:"Pesquisa de Jurisprudência"},
-    consulta:{url:"https://processo.stj.jus.br/processo/pesquisa/",label:"Consulta Processual"},
+  {
+    secao:"📚 OAB Paraná",
+    itens:[
+      {tribunal:"ESA-PR",label:"Escola Superior de Advocacia",links:[
+        {url:"http://esa.sites.oabpr.org.br/",label:"Portal ESA — Cursos e eventos",icon:"🎓"},
+      ]},
+      {tribunal:"OAB-PR",label:"Ordem dos Advogados do Brasil — Paraná",links:[
+        {url:"https://www.oabpr.org.br/",label:"Portal OAB-PR",icon:"⚖️"},
+      ]},
+    ],
   },
-  {tribunal:"TRF4",label:"Tribunal Regional Federal da 4ª Região",
-    pesquisa:{url:"https://jurisprudencia.trf4.jus.br/pesquisa/pesquisa.php",label:"Pesquisa de Jurisprudência"},
-    consulta:{url:"https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=processo_seleciona_publica&acao_origem=processo_consulta_publica",label:"Consulta Processual (eProc)"},
-  },
-  {tribunal:"TJPR",label:"Tribunal de Justiça do Paraná",
-    pesquisa:{url:"https://portal.tjpr.jus.br/jurisprudencia/",label:"Pesquisa de Jurisprudência"},
-    consulta:{url:"https://projudi.tjpr.jus.br/projudi/",label:"Consulta Processual (PJe/Projudi)"},
+  {
+    secao:"🏦 Banco Central",
+    itens:[
+      {tribunal:"BCB",label:"Banco Central do Brasil",links:[
+        {url:"https://www.bcb.gov.br/meubc/registrato",label:"Registrato — Relatório de relacionamento financeiro",icon:"📊"},
+      ]},
+    ],
   },
 ];
+function LinkItem({url,label,icon,T}){
+  return(
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      style={{display:"flex",alignItems:"center",gap:10,background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 13px",textDecoration:"none",transition:"opacity .15s",marginBottom:6}}
+      onMouseOver={e=>e.currentTarget.style.opacity=".72"} onMouseOut={e=>e.currentTarget.style.opacity="1"}>
+      <span style={{fontSize:16,flexShrink:0}}>{icon}</span>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:12,color:T.infoText,fontWeight:600}}>{label}</div>
+        <div style={{fontSize:10,color:T.muted,marginTop:1,fontFamily:"'DM Mono',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{url.replace("https://","").replace("http://","").split("/")[0]}</div>
+      </div>
+      <span style={{fontSize:11,color:T.muted,flexShrink:0}}>↗</span>
+    </a>
+  );
+}
 function TabLinks({T}){
   return(
     <div>
       <div style={{marginBottom:20}}>
         <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Links Úteis</span>
-        <div style={{fontSize:11,color:T.muted,marginTop:4}}>Acesso rápido aos portais de jurisprudência e consulta processual.</div>
+        <div style={{fontSize:11,color:T.muted,marginTop:4}}>Acesso rápido a portais jurídicos, OAB e Banco Central.</div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:14}}>
-        {LINKS_DATA.map(d=>(
-          <div key={d.tribunal} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:"hidden"}}>
-            <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"12px 18px",display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:T.accent}}>{d.tribunal}</span>
-              <span style={{fontSize:11,color:T.muted}}>{d.label}</span>
+      {LINKS_SECTIONS.map(sec=>(
+        <div key={sec.secao} style={{marginBottom:28}}>
+          <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,paddingBottom:6,marginBottom:14}}>{sec.secao}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+            {sec.itens.map(d=>(
+              <div key={d.tribunal} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
+                <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"10px 16px",display:"flex",alignItems:"baseline",gap:8}}>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:T.accent}}>{d.tribunal}</span>
+                  <span style={{fontSize:11,color:T.muted}}>{d.label}</span>
+                </div>
+                <div style={{padding:"12px 14px"}}>
+                  {d.links.map(l=><LinkItem key={l.url} T={T} {...l}/>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB CONFIGURAÇÕES — backup / restore
+═══════════════════════════════════════════════════════ */
+function TabConfig({T,contracts,setContracts,costs,setCosts,manual,setManual,clientes,setClientes,themeId}){
+  const [msg,setMsg]=useState(null); // {type:"ok"|"err", text}
+  function showMsg(type,text){setMsg({type,text});setTimeout(()=>setMsg(null),3500);}
+
+  function backupTudo(){
+    const data={v:1,exportedAt:new Date().toISOString(),contracts,costs,manual,clientes};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+    a.download=`lexcontrol-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
+    showMsg("ok","Backup completo gerado com sucesso.");
+  }
+  function backupClientes(){
+    const data={v:1,exportedAt:new Date().toISOString(),clientes};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+    a.download=`lexcontrol-clientes-${new Date().toISOString().slice(0,10)}.json`;a.click();
+    showMsg("ok","Backup de clientes gerado.");
+  }
+  function importar(e){
+    const file=e.target.files?.[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(!d.v)throw new Error("Arquivo inválido ou versão desconhecida.");
+        if(Array.isArray(d.contracts))setContracts(d.contracts);
+        if(Array.isArray(d.costs))setCosts(d.costs);
+        if(Array.isArray(d.manual))setManual(d.manual);
+        if(Array.isArray(d.clientes))setClientes(d.clientes);
+        showMsg("ok","Backup importado. Os dados foram restaurados.");
+      }catch(err){showMsg("err","Erro ao importar: "+err.message);}
+    };
+    reader.readAsText(file);
+    e.target.value="";
+  }
+  const fileRef=useRef();
+  return(
+    <div style={{maxWidth:640}}>
+      <div style={{marginBottom:20}}>
+        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Configurações</span>
+      </div>
+      {msg&&<div style={{background:msg.type==="ok"?T.successBg:T.dangerBg,border:`1px solid ${msg.type==="ok"?T.successText:T.dangerText}44`,color:msg.type==="ok"?T.successText:T.dangerText,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12,fontWeight:600}}>{msg.type==="ok"?"✅":"⚠"} {msg.text}</div>}
+
+      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden",marginBottom:16}}>
+        <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"12px 18px",fontWeight:600,fontSize:13,color:T.strong}}>💾 Backup & Restauração</div>
+        <div style={{padding:"18px",display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:T.card2,borderRadius:8,padding:"12px 16px"}}>
+            <div>
+              <div style={{fontWeight:600,fontSize:13,color:T.strong}}>Backup Completo</div>
+              <div style={{fontSize:11,color:T.muted,marginTop:2}}>Exporta contratos, custos, pagamentos e clientes em JSON.</div>
             </div>
-            <div style={{padding:"14px 18px",display:"flex",flexDirection:"column",gap:10}}>
-              <a href={d.pesquisa.url} target="_blank" rel="noopener noreferrer"
-                style={{display:"flex",alignItems:"center",gap:10,background:T.infoBg,border:`1px solid ${T.infoText}33`,borderRadius:9,padding:"11px 14px",textDecoration:"none",transition:"opacity .15s"}}
-                onMouseOver={e=>e.currentTarget.style.opacity=".75"} onMouseOut={e=>e.currentTarget.style.opacity="1"}>
-                <span style={{fontSize:18}}>🔍</span>
-                <div>
-                  <div style={{fontSize:12,color:T.infoText,fontWeight:600}}>{d.pesquisa.label}</div>
-                  <div style={{fontSize:10,color:T.muted,marginTop:2,fontFamily:"'DM Mono',monospace"}}>{d.pesquisa.url.replace("https://","").split("/")[0]}</div>
-                </div>
-                <span style={{marginLeft:"auto",fontSize:12,color:T.muted}}>↗</span>
-              </a>
-              <a href={d.consulta.url} target="_blank" rel="noopener noreferrer"
-                style={{display:"flex",alignItems:"center",gap:10,background:T.accentDim,border:`1px solid ${T.accent}33`,borderRadius:9,padding:"11px 14px",textDecoration:"none",transition:"opacity .15s"}}
-                onMouseOver={e=>e.currentTarget.style.opacity=".75"} onMouseOut={e=>e.currentTarget.style.opacity="1"}>
-                <span style={{fontSize:18}}>📋</span>
-                <div>
-                  <div style={{fontSize:12,color:T.accent,fontWeight:600}}>{d.consulta.label}</div>
-                  <div style={{fontSize:10,color:T.muted,marginTop:2,fontFamily:"'DM Mono',monospace"}}>{d.consulta.url.replace("https://","").split("/")[0]}</div>
-                </div>
-                <span style={{marginLeft:"auto",fontSize:12,color:T.muted}}>↗</span>
-              </a>
+            <Btn T={T} onClick={backupTudo}>⬇ Baixar</Btn>
+          </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:T.card2,borderRadius:8,padding:"12px 16px"}}>
+            <div>
+              <div style={{fontWeight:600,fontSize:13,color:T.strong}}>Importar Backup</div>
+              <div style={{fontSize:11,color:T.muted,marginTop:2}}>Restaura dados de um arquivo JSON exportado anteriormente.</div>
+            </div>
+            <div>
+              <input ref={fileRef} type="file" accept=".json" style={{display:"none"}} onChange={importar}/>
+              <Btn T={T} variant="secondary" onClick={()=>fileRef.current?.click()}>⬆ Importar</Btn>
             </div>
           </div>
-        ))}
+          <div style={{background:T.warnBg,border:`1px solid ${T.warnText}33`,borderRadius:8,padding:"10px 14px",fontSize:11,color:T.warnText}}>
+            ⚠ A importação <strong>substitui</strong> todos os dados atuais. Faça um backup antes de importar.
+          </div>
+        </div>
+      </div>
+
+      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
+        <div style={{background:T.hdr,borderBottom:`1px solid ${T.border}`,padding:"12px 18px",fontWeight:600,fontSize:13,color:T.strong}}>👥 Clientes</div>
+        <div style={{padding:"18px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:T.card2,borderRadius:8,padding:"12px 16px"}}>
+            <div>
+              <div style={{fontWeight:600,fontSize:13,color:T.strong}}>Backup de Clientes</div>
+              <div style={{fontSize:11,color:T.muted,marginTop:2}}>Exporta apenas a lista de clientes cadastrados.</div>
+            </div>
+            <Btn T={T} variant="secondary" onClick={backupClientes}>⬇ Baixar</Btn>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1162,6 +1312,7 @@ function App(){
     {id:"clientes",label:"👥 Clientes"},
     {id:"relatorio",label:"📊 Relatório"},
     {id:"links",label:"🔗 Links Úteis"},
+    {id:"config",label:"⚙️ Config"},
   ];
 
   return(
@@ -1211,6 +1362,7 @@ function App(){
           :tab==="custos"    ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
           :tab==="clientes"  ?<TabClientes T={T} contracts={contracts} manual={manual} clientes={clientes} setClientes={setClientes} setTab={setTab}/>
           :tab==="links"     ?<TabLinks T={T}/>
+          :tab==="config"    ?<TabConfig T={T} contracts={contracts} setContracts={setContracts} costs={costs} setCosts={setCosts} manual={manual} setManual={setManual} clientes={clientes} setClientes={setClientes} themeId={themeId}/>
           :<TabRelatorio T={T} contracts={contracts} manual={manual} costs={costs}/>
         }
       </div>
