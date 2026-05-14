@@ -19,7 +19,7 @@
        🔧 FIREBASE — preencha com seus valores
        Firebase Console → Configurações → Seus apps
     ════════════════════════════════════════════ */
-     var FIREBASE_CONFIG = {
+    var FIREBASE_CONFIG = {
       apiKey: "AIzaSyDbTPc2dJ-4nZHL5nVwZFyfxBsA92s1Tzw",
       authDomain: "escritorioju2.firebaseapp.com",
       projectId: "escritorioju2",
@@ -335,6 +335,106 @@ function CForm({T,data,set,nA,sA,nS,sS}){
 }
 
 /* ═══════════════════════════════════════════════════════
+   EXTRAÇÃO DE CONTRATO POR REGEX (sem API)
+   Funciona com o template padrão do escritório (.docx)
+═══════════════════════════════════════════════════════ */
+function extrairContratoRegex(raw){
+  // 1) limpar asteriscos do mammoth e normalizar espaços
+  const t=raw.replace(/\*+/g," ").replace(/\s+/g," ");
+
+  // 2) Cliente — nome em maiúsculas após "CONTRATANTE:"
+  const cliM=t.match(/CONTRATANTE\s*:\s*([A-ZÀÁÂÃÉÊÍÓÔÕÚÇ][A-ZÀÁÂÃÉÊÍÓÔÕÚÇ\s]+?),\s*(?:brasileir|casad|solteir|divorci|viúv)/i);
+  const cliente=cliM?cliM[1].trim():"";
+
+  // 3) Telefone do contratante (após "telefone para contato")
+  const telM=t.match(/telefone para contato[^(]*(\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4})/i);
+  const telefone=telM?telM[1].replace(/\s+/g," ").trim():"";
+
+  // 4) Forma de pagamento
+  const fpM=t.match(/via\s+(PIX|Boleto|Transferência|Transferencia|Dinheiro|Cartão|Cartao)/i);
+  const formaPagamento=fpM?fpM[1]:"";
+
+  // 5) Área de atuação por palavras-chave
+  let areaAtuacao="Cível";
+  if(/inventário|inventario|herança|heranca|sucessão|sucessao|espólio|espolio/i.test(t)) areaAtuacao="Família e Sucessões";
+  else if(/trabalhista|rescisão|rescisao|FGTS|CTPS/i.test(t)) areaAtuacao="Trabalhista";
+  else if(/criminal|penal|crime/i.test(t)) areaAtuacao="Criminal";
+  else if(/previdenci|INSS|aposentadoria/i.test(t)) areaAtuacao="Previdenciário";
+  else if(/consumidor|CDC/i.test(t)) areaAtuacao="Consumidor";
+
+  // 6) Isolar cláusula de honorários
+  const honM=t.match(/(?:CLÁUSULA SEGUNDA|Honorários Advocatícios)[\s\S]+?(?=PARÁGRAFO PRIMEIRO|CLÁUSULA TERCEIRA)/i);
+  const hon=honM?honM[0]:t;
+
+  // 7) Dividir em blocos de pagamento pelo separador "; e o valor de"
+  const blocos=hon.split(/;\s*e\s+o\s+valor\s+de\s*/i);
+
+  const NUM_WORDS={uma:1,um:1,dois:2,duas:2,três:3,tres:3,quatro:4,cinco:5,seis:6,sete:7,oito:8,nove:9,dez:10,
+    onze:11,doze:12,treze:13,quatorze:14,quinze:15,dezesseis:16,dezessete:17,dezoito:18,dezenove:19,vinte:20};
+
+  function parseBRL(s){return parseFloat(s.replace(/\./g,"").replace(",","."))||0;}
+
+  function extrairDesc(bloco){
+    // pega texto após o primeiro ")" que fecha o valor por extenso, antes de ", em X parcelas"
+    const ap=bloco.replace(/^[^)]+\)\s*/,"");
+    const m=ap.match(/^(.+?)(?:\s*,\s*em\s+(?:\w+\s+)?parcelas?|\s+em\s+parcela\s+única|\s*\.\s+Os\s+valores|$)/i);
+    const d=m?m[1].replace(/^(pela|para|referente a|pelo)\s+/i,"").trim():"";
+    // evitar que capture lixo de data ou telefone
+    return d.length>4&&d.length<120&&!/^\d/.test(d)?d:"";
+  }
+
+  const schedule=[];
+
+  blocos.forEach((bloco,bi)=>{
+    const valsM=[...bloco.matchAll(/R\$([\d., ]+)/g)].map(m=>parseBRL(m[1].trim().replace(/ /g,"")));
+    if(!valsM.length)return;
+
+    const datasM=[...bloco.matchAll(/(\d{2})\/(\d{2})\/(\d{4})/g)].map(m=>({mes:parseInt(m[2]),ano:parseInt(m[3])}));
+    const nParM=bloco.match(/em\s+(\w+)\s+parcelas?\s+de\s+R\$/i);
+    const nPar=nParM?(parseInt(nParM[1])||NUM_WORDS[nParM[1]?.toLowerCase()]||1):1;
+    const recM=bloco.match(/dia\s+(\d+)\s+de\s+cada\s+m[eê]s[^,]*,?\s*iniciando[- ]se\s+em\s+(\d{2})\/(\d{2})\/(\d{4})/i);
+    const isUnica=/parcela\s+única|à vista|a vista|ato\s+da\s+assinatura/i.test(bloco);
+
+    const valorParcela=valsM.length>1?Math.min(...valsM):valsM[0];
+    const totalBloco  =valsM.length>1?Math.max(...valsM):valsM[0];
+    const totalParcelas=nPar>1?nPar:(datasM.length>1?datasM.length:1);
+    const desc=extrairDesc(bloco);
+    const sufDesc=desc?" — "+desc:"";
+
+    if(recM){
+      // recorrente: "dia X de cada mês iniciando DD/MM/AAAA"
+      let mes=parseInt(recM[3]),ano=parseInt(recM[4]);
+      for(let i=0;i<totalParcelas;i++){
+        schedule.push({mes,ano,valor:valorParcela,descricao:`Parcela ${i+1}/${totalParcelas}${sufDesc}`,pago:false});
+        mes++;if(mes>12){mes=1;ano++;}
+      }
+    }else if(datasM.length>=totalParcelas&&totalParcelas>1){
+      // datas explícitas no texto
+      datasM.slice(0,totalParcelas).forEach((d,i)=>{
+        schedule.push({mes:d.mes,ano:d.ano,valor:valorParcela,descricao:`Parcela ${i+1}/${totalParcelas}${sufDesc}`,pago:false});
+      });
+    }else if(isUnica||totalParcelas===1){
+      const d=datasM[0]||{mes:new Date().getMonth()+1,ano:new Date().getFullYear()};
+      schedule.push({mes:d.mes,ano:d.ano,valor:totalBloco,descricao:`Parcela única${sufDesc}`,pago:false});
+    }else{
+      const d=datasM[0]||{mes:new Date().getMonth()+1,ano:new Date().getFullYear()};
+      let{mes,ano}=d;
+      for(let i=0;i<totalParcelas;i++){
+        schedule.push({mes,ano,valor:valorParcela,descricao:`Parcela ${i+1}/${totalParcelas}${sufDesc}`,pago:false});
+        mes++;if(mes>12){mes=1;ano++;}
+      }
+    }
+  });
+
+  const valorTotal=schedule.reduce((s,e)=>s+e.valor,0).toFixed(2);
+  const obsM=t.match(/multa de[\s\S]+?(?:ao mês|por mês|ao mes|por mes)\./i);
+  const observacoes=obsM?obsM[0].trim():"";
+
+  return{cliente,telefone,numeroProcesso:"",areaAtuacao,valorTotal,formaPagamento,
+    totalParcelas:String(schedule.length),valorParcela:"",prazos:"",observacoes,schedule};
+}
+
+/* ═══════════════════════════════════════════════════════
    TAB CONTRATOS
 ═══════════════════════════════════════════════════════ */
 function TabContratos({T,contracts,setContracts}){
@@ -351,22 +451,28 @@ function TabContratos({T,contracts,setContracts}){
     try{
       const isPdf=file.type==="application/pdf",isDocx=file.name.toLowerCase().endsWith(".docx");
       if(!isPdf&&!isDocx)throw new Error("Use PDF ou .docx");
-      let messages;
-      if(isPdf){setLoadMsg("Enviando para IA...");const b64=await new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result.split(",")[1]);x.onerror=j;x.readAsDataURL(file);});messages=[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},{type:"text",text:AI_PROMPT}]}];}
-      else{setLoadMsg("Extraindo Word...");const text=await new Promise((r,j)=>{const x=new FileReader();x.onload=async e=>{try{r((await mammoth.extractRawText({arrayBuffer:e.target.result})).value);}catch(err){j(err);}};x.onerror=j;x.readAsArrayBuffer(file);});messages=[{role:"user",content:`${AI_PROMPT}\n\n---\n${text}`}];}
-      setLoadMsg("IA analisando...");
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.ANT,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system:"Você extrai dados de contratos jurídicos brasileiros e retorna APENAS JSON válido, sem nenhum texto adicional, sem markdown, sem blocos de código.",messages})});
-      const data=await res.json();
-      if(data.error)throw new Error("API: "+data.error.message);
-      const txt=data.content?.find(b=>b.type==="text")?.text??"{}";
-      let p;
-      try{p=JSON.parse(txt.replace(/```json|```/g,"").trim());}
-      catch(parseErr){throw new Error("IA não retornou JSON válido. Resposta recebida: "+txt.slice(0,200));}
-      // normaliza schedule: garante id em cada entrada
-      const parsedSchedule=Array.isArray(p.schedule)
-        ?p.schedule.map((s,i)=>({id:genId()+i,mes:Number(s.mes)||1,ano:Number(s.ano)||new Date().getFullYear(),valor:parseFloat(s.valor)||0,descricao:s.descricao||`Parcela ${i+1}/${p.totalParcelas||1}`,pago:false}))
-        :[];
-      setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||"",schedule:parsedSchedule,status:parsedSchedule.length>0?"em_pagamento":"pendente"},...prev]);
+      let text="";
+      if(isDocx){
+        setLoadMsg("Extraindo Word...");
+        text=await new Promise((r,j)=>{const x=new FileReader();x.onload=async e=>{try{r((await mammoth.extractRawText({arrayBuffer:e.target.result})).value);}catch(err){j(err);}};x.onerror=j;x.readAsArrayBuffer(file);});
+      }else{
+        setLoadMsg("Extraindo PDF...");
+        // para PDF ainda precisamos da API — regex não funciona em binário
+        const b64=await new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result.split(",")[1]);x.onerror=j;x.readAsDataURL(file);});
+        const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":window.ANT,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system:"Você extrai dados de contratos jurídicos brasileiros e retorna APENAS JSON válido, sem nenhum texto adicional.",messages:[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},{type:"text",text:AI_PROMPT}]}]})});
+        const data=await res.json();
+        if(data.error)throw new Error("API: "+data.error.message);
+        const txt=data.content?.find(b=>b.type==="text")?.text??"{}";
+        let p;try{p=JSON.parse(txt.replace(/```json|```/g,"").trim());}catch(e){throw new Error("Resposta IA inválida: "+txt.slice(0,150));}
+        const parsedSchedule=Array.isArray(p.schedule)?p.schedule.map((s,i)=>({id:genId()+i,mes:Number(s.mes)||1,ano:Number(s.ano)||new Date().getFullYear(),valor:parseFloat(s.valor)||0,descricao:s.descricao||`Parcela ${i+1}/${p.totalParcelas||1}`,pago:false})):[];
+        setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||"",schedule:parsedSchedule,status:parsedSchedule.length>0?"em_pagamento":"pendente"},...prev]);
+        return;
+      }
+      // EXTRAÇÃO POR REGEX (docx)
+      setLoadMsg("Analisando contrato...");
+      const p=extrairContratoRegex(text);
+      const parsedSchedule=p.schedule.map((s,i)=>({...s,id:genId()+i}));
+      setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:ADV_PRINCIPAL,cliente:p.cliente,telefone:p.telefone,numeroProcesso:p.numeroProcesso,areaAtuacao:p.areaAtuacao,valorTotal:p.valorTotal,formaPagamento:p.formaPagamento,totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela,prazos:p.prazos,observacoes:p.observacoes,schedule:parsedSchedule,status:parsedSchedule.length>0?"em_pagamento":"pendente"},...prev]);
     }catch(e){setError(e.message||"Erro.");}finally{setLoading(false);setLoadMsg("");}
   }
   function saveNew(){if(!nd.cliente)return;setContracts(p=>[{...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")},...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});}
