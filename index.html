@@ -124,6 +124,7 @@ const THEMES={
 const MFL=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const MFS=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const COST_CATS=["Aluguel","Energia","Internet","Telefone","Software","Pessoal","Contabilidade","Material de Escritório","Transporte","Outros"];
+const COST_EMOJI={"Aluguel":"🏠","Energia":"⚡","Internet":"🌐","Telefone":"📱","Software":"💻","Pessoal":"👤","Contabilidade":"📊","Material de Escritório":"📎","Transporte":"🚗","Outros":"📌"};
 const AREAS=["Cível","Previdenciária","Penal / Criminal","Trabalhista","Administrativa","Consumidor","Família e Sucessões","Tributária / Fiscal","Empresarial","Imobiliária","Ambiental","Eleitoral","Militar","Internacional","Outro"];
 const FORMAS=["PIX","Boleto","Transferência","Dinheiro","Cartão de Crédito","Cartão de Débito","Cheque","Outro"];
 const AREA_COLORS={"Cível":"#3b82f6","Previdenciária":"#10b981","Penal / Criminal":"#ef4444","Trabalhista":"#f59e0b","Administrativa":"#8b5cf6","Consumidor":"#06b6d4","Família e Sucessões":"#ec4899","Tributária / Fiscal":"#f97316","Empresarial":"#6366f1","Imobiliária":"#84cc16","Ambiental":"#14b8a6","Outro":"#94a3b8"};
@@ -684,7 +685,7 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
         </div>
       </div>
 
-      {byCat.length>0&&<div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>{byCat.map(g=><div key={g.cat} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",flex:"1 1 100px",textAlign:"center"}}><div style={{fontSize:12,color:T.accent,fontWeight:700}}>{fmt(g.tot)}</div><div style={{fontSize:10,color:T.muted,marginTop:2}}>{g.cat}</div></div>)}</div>}
+      {byCat.length>0&&<div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>{byCat.map(g=><div key={g.cat} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",flex:"1 1 100px",textAlign:"center"}}><div style={{fontSize:16,marginBottom:2}}>{COST_EMOJI[g.cat]||"📌"}</div><div style={{fontSize:12,color:T.accent,fontWeight:700}}>{fmt(g.tot)}</div><div style={{fontSize:10,color:T.muted,marginTop:1}}>{g.cat}</div></div>)}</div>}
 
       {showForm&&(
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
@@ -715,7 +716,7 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
                 <tr key={c.id} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
                   <td style={{padding:"9px 12px"}}><input type="checkbox" checked={c.pago} onChange={()=>setCosts(p=>p.map(x=>x.id===c.id?{...x,pago:!x.pago}:x))} style={{cursor:"pointer",accentColor:T.accent}}/></td>
                   <td style={{padding:"9px 12px",color:T.strong}}>{c.descricao}</td>
-                  <td style={{padding:"9px 12px"}}><span style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:4,padding:"2px 8px",fontSize:11,color:T.muted}}>{c.categoria}</span></td>
+                  <td style={{padding:"9px 12px"}}><span style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:4,padding:"2px 8px",fontSize:11,color:T.muted}}>{COST_EMOJI[c.categoria]||"📌"} {c.categoria}</span></td>
                   <td style={{padding:"9px 12px",color:T.accent,fontWeight:700}}>{fmt(c.valor)}</td>
                   <td style={{padding:"9px 12px",color:T.muted,fontSize:11}}>{c.dataPagamento||`${MFS[c.mes-1]}/${c.ano}`}</td>
                   <td style={{padding:"9px 12px"}}><span style={{fontSize:11,color:c.pago?T.successText:T.dangerText,fontWeight:600}}>{c.pago?"✅ Pago":"🔴 Pendente"}</span></td>
@@ -868,9 +869,206 @@ function TabRelatorio({T,contracts,manual,costs}){
 }
 
 /* ═══════════════════════════════════════════════════════
-   TAB CLIENTES
+   TAB CLIENTES — lista com edição e exclusão
 ═══════════════════════════════════════════════════════ */
-function TabClientes({T,contracts,manual,setTab}){
+const EMPTY_CLIENTE = ()=>({id:genId(),nome:"",cpf:"",telefone:"",email:"",endereco:"",cidade:"",observacoes:""});
+
+function fmtCPF(v){
+  const d=v.replace(/\D/g,"").slice(0,11);
+  if(d.length<=3)return d;
+  if(d.length<=6)return d.replace(/(\d{3})(\d)/,"$1.$2");
+  if(d.length<=9)return d.replace(/(\d{3})(\d{3})(\d)/,"$1.$2.$3");
+  return d.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/,"$1.$2.$3-$4");
+}
+
+function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra}){
+  const [busca,setBusca]=useState("");
+  const [modalCliente,setModalCliente]=useState(null);
+  const [showForm,setShowForm]=useState(false);
+  const [formCl,setFormCl]=useState(EMPTY_CLIENTE());
+  const [editId,setEditId]=useState(null);
+
+  // Mapa de clientes vindos de contratos/pagamentos
+  const clientMap={};
+  contracts.forEach(c=>{
+    if(!c.cliente)return;
+    const k=c.cliente.trim().toLowerCase();
+    if(!clientMap[k])clientMap[k]={nome:c.cliente,telefone:c.telefone||"",processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
+    const cl=clientMap[k];
+    if(c.telefone&&!cl.telefone)cl.telefone=c.telefone;
+    cl.processos.push({numeroProcesso:c.numeroProcesso||"",area:c.areaAtuacao,status:c.status,valorTotal:fmtN(c.valorTotal),dataUpload:c.dataUpload});
+    cl.valorTotal+=fmtN(c.valorTotal);
+    cl.areas.add(c.areaAtuacao);
+    cl.status[c.status]=(cl.status[c.status]||0)+1;
+    (c.schedule||[]).filter(s=>s.pago).forEach(s=>cl.valorRecebido+=fmtN(s.valor));
+  });
+  manual.forEach(p=>{
+    if(!p.cliente)return;
+    const k=p.cliente.trim().toLowerCase();
+    if(!clientMap[k])clientMap[k]={nome:p.cliente,telefone:p.telefone||"",processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
+    const cl=clientMap[k];
+    if(p.telefone&&!cl.telefone)cl.telefone=p.telefone;
+    cl.valorTotal+=fmtN(p.valor);
+    cl.areas.add(p.areaAtuacao);
+    if(p.pago)cl.valorRecebido+=fmtN(p.valor);
+  });
+
+  // Mescla clientes cadastrados manualmente com os derivados
+  const allKeys=new Set([...Object.keys(clientMap),...(clientesExtra||[]).map(c=>c.nome.trim().toLowerCase())]);
+  const clientes=[...allKeys].map(k=>{
+    const fromData=clientMap[k]||{nome:"",processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
+    const extra=(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===k)||{};
+    return{...fromData,cpf:extra.cpf||"",email:extra.email||"",endereco:extra.endereco||"",cidade:extra.cidade||"",observacoes:extra.observacoes||"",idExtra:extra.id||null};
+  }).filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase()))
+    .sort((a,b)=>a.nome.localeCompare(b.nome));
+
+  const totalClientes=clientes.length;
+  const totalCarteira=clientes.reduce((s,c)=>s+c.valorTotal,0);
+  const totalRecebido=clientes.reduce((s,c)=>s+c.valorRecebido,0);
+
+  function openNew(){setEditId(null);setFormCl(EMPTY_CLIENTE());setShowForm(true);}
+  function openEdit(cl){
+    setEditId(cl.idExtra||cl.nome);
+    setFormCl({id:cl.idExtra||genId(),nome:cl.nome,cpf:cl.cpf||"",telefone:cl.telefone||"",email:cl.email||"",endereco:cl.endereco||"",cidade:cl.cidade||"",observacoes:cl.observacoes||""});
+    setShowForm(true);
+  }
+  function saveForm(){
+    if(!formCl.nome)return;
+    if(editId){
+      setClientesExtra(p=>p.some(c=>c.id===formCl.id)?p.map(c=>c.id===formCl.id?formCl:c):[...p,formCl]);
+    } else {
+      setClientesExtra(p=>[...p,{...formCl,id:genId()}]);
+    }
+    setShowForm(false);
+  }
+  function delCliente(cl){
+    if(!confirm(`Excluir "${cl.nome}" do cadastro?\n\nNota: contratos e pagamentos com este nome não serão excluídos.`))return;
+    setClientesExtra(p=>p.filter(c=>c.id!==cl.idExtra));
+    setModalCliente(null);
+  }
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Clientes</span>
+        <div style={{flex:1}}/>
+        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar..." style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,width:180}}/>
+        <Btn T={T} onClick={openNew}>+ Novo Cliente</Btn>
+      </div>
+
+      {/* form cadastro/edição */}
+      {showForm&&(
+        <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
+          <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"✏ Editar Cliente":"+ Novo Cliente"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+            <Fld T={T} label="Nome completo *" value={formCl.nome} onChange={v=>setFormCl(d=>({...d,nome:v}))}/>
+            <Fld T={T} label="CPF" value={formCl.cpf} onChange={v=>setFormCl(d=>({...d,cpf:fmtCPF(v)}))} ph="000.000.000-00"/>
+            <Fld T={T} label="Telefone / WhatsApp" value={formCl.telefone} onChange={v=>setFormCl(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
+            <Fld T={T} label="E-mail" value={formCl.email} onChange={v=>setFormCl(d=>({...d,email:v}))} ph="email@exemplo.com"/>
+            <Fld T={T} label="Endereço" value={formCl.endereco} onChange={v=>setFormCl(d=>({...d,endereco:v}))} ph="Rua, número, bairro"/>
+            <Fld T={T} label="Cidade / UF" value={formCl.cidade} onChange={v=>setFormCl(d=>({...d,cidade:v}))} ph="Cascavel / PR"/>
+            <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Observações" value={formCl.observacoes} onChange={v=>setFormCl(d=>({...d,observacoes:v}))} type="textarea"/></div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <Btn T={T} variant="secondary" onClick={()=>setShowForm(false)}>Cancelar</Btn>
+            <Btn T={T} onClick={saveForm}>💾 Salvar</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* stats */}
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        {[["👥","Clientes",totalClientes,T.accent],["💼","Carteira",null,T.accent,fmt(totalCarteira)],["✅","Recebido",null,T.successText,fmt(totalRecebido)],["⏳","A Receber",null,T.warnText,fmt(totalCarteira-totalRecebido)]].map(([ic,lb,vn,cor,vs])=>(
+          <div key={lb} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 16px",flex:"1 1 110px",textAlign:"center"}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:cor}}>{vs||vn}</div>
+            <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:3}}>{ic} {lb}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* tabela lista */}
+      {clientes.length===0
+        ?<div style={{textAlign:"center",color:T.muted,padding:"60px 0"}}><div style={{fontSize:36,marginBottom:12}}>👥</div>Nenhum cliente.</div>
+        :<div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${T.border}`}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr style={{background:T.card2}}>{["Cliente","CPF","Contato","Endereço","Área","Honorários","Recebido","Processos",""].map(h=><th key={h} style={{padding:"9px 13px",textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+            <tbody>
+              {clientes.map((cl,i)=>{
+                const pct=cl.valorTotal>0?Math.round(cl.valorRecebido/cl.valorTotal*100):0;
+                const aList=[...cl.areas].filter(Boolean);
+                return(
+                  <tr key={cl.nome} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
+                    <td style={{padding:"10px 13px"}}>
+                      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,color:T.strong}}>{cl.nome}</div>
+                      {cl.email&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>✉ {cl.email}</div>}
+                    </td>
+                    <td style={{padding:"10px 13px",color:T.muted,fontSize:11,fontFamily:"'DM Mono',monospace"}}>{cl.cpf||"—"}</td>
+                    <td style={{padding:"10px 13px",fontSize:11}}>
+                      {cl.telefone?<PhoneLink phone={cl.telefone}/>:<span style={{color:T.muted}}>—</span>}
+                    </td>
+                    <td style={{padding:"10px 13px",fontSize:11,color:T.muted,maxWidth:160}}>
+                      {cl.endereco?<div title={cl.endereco+"\n"+cl.cidade}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cl.endereco}</div>{cl.cidade&&<div style={{fontSize:10}}>{cl.cidade}</div>}</div>:"—"}
+                    </td>
+                    <td style={{padding:"10px 13px"}}>{aList.length>0?<ABadge area={aList[0]}/>:<span style={{color:T.muted,fontSize:11}}>—</span>}</td>
+                    <td style={{padding:"10px 13px",color:T.accent,fontWeight:700}}>{fmt(cl.valorTotal)}</td>
+                    <td style={{padding:"10px 13px"}}>
+                      <div style={{fontSize:11,color:T.successText,fontWeight:600}}>{fmt(cl.valorRecebido)}</div>
+                      <div style={{width:60,height:3,background:T.border,borderRadius:2,marginTop:3,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",background:T.accent}}/></div>
+                    </td>
+                    <td style={{padding:"10px 13px",fontSize:11,color:T.muted,textAlign:"center"}}>{cl.processos.length}</td>
+                    <td style={{padding:"10px 13px"}}>
+                      <div style={{display:"flex",gap:5}}>
+                        <button className="bhov" onClick={()=>setModalCliente(cl)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}>🔍</button>
+                        <button className="bhov" onClick={()=>openEdit(cl)} style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:5,padding:"5px 9px",fontSize:13}}>✏</button>
+                        <button className="bhov" onClick={()=>delCliente(cl)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}>🗑</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>}
+
+      {/* modal detalhe */}
+      {modalCliente&&(
+        <Modal T={T} title={modalCliente.nome} sub={`${modalCliente.processos.length} processo${modalCliente.processos.length!==1?"s":""} · ${[...modalCliente.areas].join(", ")}`} onClose={()=>setModalCliente(null)} width={680}>
+          <div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              {[["CPF",modalCliente.cpf||"—"],["Telefone",modalCliente.telefone||"—"],["E-mail",modalCliente.email||"—"],["Endereço",modalCliente.endereco?modalCliente.endereco+(modalCliente.cidade?" — "+modalCliente.cidade:""):"—"]].map(([l,v])=>(
+                <div key={l} style={{background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:3}}>{l}</div>
+                  <div style={{color:T.strong,fontSize:13}}>{l==="Telefone"&&modalCliente.telefone?<PhoneLink phone={modalCliente.telefone}/>:v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+              {[["Honorários",fmt(modalCliente.valorTotal),T.accent],["Recebido",fmt(modalCliente.valorRecebido),T.successText],["A Receber",fmt(modalCliente.valorTotal-modalCliente.valorRecebido),T.warnText]].map(([l,v,cor])=>(
+                <div key={l} style={{background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`,textAlign:"center"}}>
+                  <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:4}}>{l}</div>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:cor}}>{v}</div>
+                </div>
+              ))}
+            </div>
+            {modalCliente.processos.length>0&&(
+              <div>
+                <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",marginBottom:8}}>Processos</div>
+                {modalCliente.processos.map((p,i)=>{const st=STATUS_CFG[p.status]||STATUS_CFG.pendente;return(
+                  <div key={i} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 13px",marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
+                    <ABadge area={p.area}/><span style={{fontSize:11,color:st.color,fontWeight:600}}>{st.icon} {st.label}</span>
+                    <span style={{flex:1,color:T.muted,fontSize:11}}>{p.numeroProcesso||"Sem nº"}</span>
+                    <span style={{color:T.accent,fontWeight:700}}>{fmt(p.valorTotal)}</span>
+                  </div>
+                );})}
+              </div>
+            )}
+            {modalCliente.observacoes&&<div style={{marginTop:12,background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`}}><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:3}}>Observações</div><div style={{color:T.text,fontSize:12,whiteSpace:"pre-wrap"}}>{modalCliente.observacoes}</div></div>}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
   const [busca,setBusca]=useState("");
   const [modalCliente,setModalCliente]=useState(null);
   const [showNovoCliente,setShowNovoCliente]=useState(false);
@@ -1267,11 +1465,13 @@ function App(){
   const [contracts,setContracts] = useState([]);
   const [costs,setCosts]         = useState([]);
   const [manual,setManual]       = useState([]);
+  const [clientesExtra,setClientesExtra] = useState([]);
 
   /* ── 2. Estados de sync (exatamente como no prompt) ── */
   const [fbLoaded, setFbLoaded] = useState(false);
   const [fbSaving, setFbSaving] = useState(false);
   const [fbError,  setFbError]  = useState(null);
+  const [syncedAt, setSyncedAt] = useState(null);   // hora exata da última sync
   const saveTimeout    = useRef(null);
   const loadingFromFb  = useRef(false);  // true enquanto onSnapshot processa dados
 
@@ -1292,6 +1492,7 @@ function App(){
           if(Array.isArray(d.contracts))  setContracts(d.contracts);
           if(Array.isArray(d.costs))      setCosts(d.costs);
           if(Array.isArray(d.manual))     setManual(d.manual);
+          if(Array.isArray(d.clientesExtra)) setClientesExtra(d.clientesExtra);
           if(d.theme)                     setThemeId(d.theme);
         }
         setFbLoaded(true);
@@ -1329,17 +1530,19 @@ function App(){
                          contracts,
                          costs,
                          manual,
+                         clientesExtra,
                          theme: themeId,
                          updatedAt: new Date().toISOString(),
                        });
         setFbSaving(false);
         setFbError(null);
+        setSyncedAt(new Date());
       }catch(e){
         setFbSaving(false);
         setFbError(e.message || "Erro ao salvar");
       }
     }, 1500);
-  },[contracts, costs, manual, themeId, fbLoaded]);
+  },[contracts, costs, manual, clientesExtra, themeId, fbLoaded]);
   //                                    ^^^^^^^^^
   //  fbLoaded no array faz o primeiro save rodar logo
   //  após o carregamento — necessário para persistir
@@ -1349,6 +1552,7 @@ function App(){
   const cloudMsg = !fbLoaded ? "☁️ conectando..."
                  : fbError   ? "⚠️ offline"
                  : fbSaving  ? "☁️ salvando..."
+                 : syncedAt  ? `☁️ Sincronizado às ${syncedAt.toLocaleTimeString("pt-BR")}`
                  :             "☁️ sincronizado";
   const cloudColor = fbError   ? "#f87171"
                    : fbSaving  ? "#fbbf24"
@@ -1442,7 +1646,7 @@ function App(){
           :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts}/>
           :tab==="pagamentos"   ?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual}/>
           :tab==="custos"       ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
-          :tab==="clientes"     ?<TabClientes T={T} contracts={contracts} manual={manual} setTab={setTab}/>
+          :tab==="clientes"     ?<TabClientes T={T} contracts={contracts} manual={manual} setTab={setTab} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra}/>
           :tab==="relatorio"    ?<TabRelatorio T={T} contracts={contracts} manual={manual} costs={costs}/>
           :tab==="configuracoes"?<TabConfig T={T} contracts={contracts} costs={costs} manual={manual} setContracts={setContracts} setCosts={setCosts} setManual={setManual}/>
           :<TabLinks T={T}/>
