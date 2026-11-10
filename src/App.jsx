@@ -4,7 +4,7 @@ import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
 import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
-import {Home,Zap,Globe,Smartphone,Laptop,UserRound,Calculator,Paperclip,Car,Pin,CreditCard,CircleDollarSign,Filter,FilterX,Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
+import {CalendarPlus,Home,Zap,Globe,Smartphone,Laptop,UserRound,Calculator,Paperclip,Car,Pin,CreditCard,CircleDollarSign,Filter,FilterX,Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
 
@@ -1466,6 +1466,33 @@ const AUD_STATUS={
 };
 const newAud=()=>({id:null,data:hojeISO(),hora:"09:00",cliente:"",numeroProcesso:"",tipo:"Conciliação",status:"agendada",modalidade:"Presencial",local:"",link:"",advogado:ADV_PRINCIPAL,observacoes:""});
 const dataParaISO=v=>{if(!v)return "";if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;const m=String(v).match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?`${m[3]}-${m[2]}-${m[1]}`:"";};
+/* ── Exportação para a agenda do celular (.ics) com alarmes de 1 dia e 1 hora antes ── */
+const icsEsc=t=>String(t||"").replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n");
+const icsFold=l=>{let o="";while(l.length>73){o+=l.slice(0,73)+"\r\n ";l=l.slice(73);}return o+l;};
+const icsUTC=(iso,hora,addMin=0)=>{ // horário de Brasília (UTC-3, sem horário de verão) -> UTC
+  const [y,m,d]=iso.split("-").map(Number),[H,M]=(hora||"09:00").split(":").map(Number);
+  return new Date(Date.UTC(y,m-1,d,H+3,(M||0)+addMin)).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+};
+function gerarICS(auds){
+  const agora=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//LexControl//Audiencias//PT-BR","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:Audiências — LexControl"];
+  auds.forEach(a=>{
+    const onde=a.modalidade==="Virtual"?(a.link||"Audiência virtual"):(a.local||"");
+    const desc=[`Cliente: ${a.cliente}`,a.numeroProcesso&&`Processo: ${a.numeroProcesso}`,`Tipo: ${a.tipo}`,`Modalidade: ${a.modalidade}`,a.advogado&&`Advogado(a): ${a.advogado}`,a.link&&`Link: ${a.link}`,a.observacoes&&`Obs.: ${a.observacoes}`].filter(Boolean).join("\n");
+    L.push("BEGIN:VEVENT",`UID:aud-${a.id}@lexcontrol`,`DTSTAMP:${agora}`,`DTSTART:${icsUTC(a.data,a.hora)}`,`DTEND:${icsUTC(a.data,a.hora,60)}`,
+      `SUMMARY:${icsEsc(`Audiência ${a.tipo} — ${a.cliente}`)}`,`DESCRIPTION:${icsEsc(desc)}`);
+    if(onde)L.push(`LOCATION:${icsEsc(onde)}`);
+    L.push("BEGIN:VALARM","ACTION:DISPLAY",`DESCRIPTION:${icsEsc(`Audiência amanhã: ${a.cliente}`)}`,"TRIGGER:-P1D","END:VALARM",
+           "BEGIN:VALARM","ACTION:DISPLAY",`DESCRIPTION:${icsEsc(`Audiência em 1 hora: ${a.cliente}`)}`,"TRIGGER:-PT1H","END:VALARM","END:VEVENT");
+  });
+  L.push("END:VCALENDAR");
+  return L.map(icsFold).join("\r\n")+"\r\n";
+}
+function baixarICS(nome,auds){
+  const blob=new Blob([gerarICS(auds)],{type:"text/calendar;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nome;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
 const ordAud=(a,b)=>(a.data+(a.hora||"")).localeCompare(b.data+(b.hora||""));
 
 function MiniCalendar({T,audiencias,setTab,onClose}){
@@ -1572,6 +1599,7 @@ function TabAudiencias({T,audiencias,setAudiencias,contracts,manual,clientesExtr
         </div>
         <div style={{flex:1}}/>
         <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar cliente, processo, vara..." className="field" style={{background:T.inp,border:`1px solid ${T.border2}`,color:T.text,minWidth:260}}/>
+        <Btn T={T} variant="ghost" onClick={()=>{const f=audiencias.filter(a=>a.status==="agendada"&&a.data>=hoje).sort(ordAud);if(!f.length){notify("Não há audiências agendadas para exportar.");return;}baixarICS("audiencias-lexcontrol.ics",f);}}><CalendarPlus size={15}/> Exportar agenda</Btn>
         <Btn T={T} onClick={()=>setModal(newAud())}><Plus size={15}/> Nova Audiência</Btn>
       </div>
 
@@ -1613,6 +1641,7 @@ function TabAudiencias({T,audiencias,setAudiencias,contracts,manual,clientesExtr
                   {a.observacoes&&<div style={{fontSize:12,color:T.muted,marginTop:4,fontStyle:"italic"}}>{a.observacoes}</div>}
                 </div>
                 <div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                  {a.status==="agendada"&&<button className="bhov" title="Adicionar à agenda do celular (alertas 1 dia e 1 hora antes)" onClick={()=>baixarICS(`audiencia-${(a.cliente||"cliente").replace(/[^\w]+/g,"-")}-${a.data}.ics`,[a])} style={{...iconBtn,background:T.infoBg,color:T.infoText}}><CalendarPlus size={14}/></button>}
                   {a.status==="agendada"&&<button className="bhov" title="Marcar como realizada" onClick={()=>setStatus(a,"realizada")} style={{...iconBtn,background:T.successBg,color:T.successText}}><Check size={14}/></button>}
                   {a.status!=="agendada"&&<button className="bhov" title="Voltar para agendada" onClick={()=>setStatus(a,"agendada")} style={{...iconBtn,background:T.card2,color:T.muted,border:`1px solid ${T.border2}`}}><Undo2 size={14}/></button>}
                   <button className="bhov" title="Lembrar o cliente pelo WhatsApp" onClick={()=>lembrar(a)} style={{...iconBtn,background:"#22c55e22",color:"#16a34a",border:"1px solid #22c55e44"}}><MessageCircle size={14}/></button>
