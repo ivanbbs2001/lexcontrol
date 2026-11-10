@@ -1616,7 +1616,12 @@ function Login(){
     setLoading(true);setErro("");
     try{await auth.signInWithEmailAndPassword(email,senha);}
     catch(err){
-      setErro(err.code==="auth/too-many-requests"?"Muitas tentativas. Aguarde alguns minutos.":"Usuário ou senha inválidos.");
+      const c=err.code||"";
+      setErro((c==="auth/too-many-requests"?"Muitas tentativas. Aguarde alguns minutos."
+        :c==="auth/operation-not-allowed"?"Login por e-mail/senha não está ativado no Firebase."
+        :c==="auth/user-not-found"?"Conta não encontrada no Firebase (confira o e-mail cadastrado: "+email+")."
+        :c==="auth/network-request-failed"?"Sem conexão com o Firebase."
+        :"Usuário ou senha inválidos.")+" ["+(c||err.message)+"]");
       setLoading(false);
     }
   }
