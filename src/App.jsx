@@ -6,6 +6,7 @@ import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
 import {CalendarPlus,Home,Zap,Globe,Smartphone,Laptop,UserRound,Calculator,Paperclip,Car,Pin,CreditCard,CircleDollarSign,Filter,FilterX,Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
+import {mensagemDoDia} from "./mensagens";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
 
 /* ═══════════════════════════════════════════════════════
@@ -1872,6 +1873,7 @@ function TabInicio({T,contracts,manual,costs,contatos,clientesExtra,audiencias,s
     <div>
       <div style={{marginBottom:20}}>
         <div style={{fontFamily:"var(--font-display)",fontSize:26,fontWeight:700,color:T.accent}}>{now.getHours()<12?"Bom dia":now.getHours()<18?"Boa tarde":"Boa noite"}</div>
+        <div style={{fontStyle:"italic",color:T.muted,fontSize:14,margin:"4px 0 6px",maxWidth:620,lineHeight:1.45,fontFamily:"var(--font-display)"}}>“{mensagemDoDia().t}”</div>
         <div style={{color:T.muted,fontSize:13}}>Resumo de {MFL[mes-1]} de {ano}</div>
       </div>
 
