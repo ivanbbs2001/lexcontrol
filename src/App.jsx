@@ -4,7 +4,7 @@ import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
 import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
-import {Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
+import {Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
 
@@ -1181,7 +1181,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
 /* ═══════════════════════════════════════════════════════
    TAB CONFIGURAÇÕES — backup e exportação
 ═══════════════════════════════════════════════════════ */
-function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,setContracts,setCosts,setManual,setClientesExtra,setContatos}){
+function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,audiencias,setContracts,setCosts,setManual,setClientesExtra,setContatos,setAudiencias}){
   const [msg,setMsg]=useState("");
   const [chave,setChave]=useState(getAntKey());
   const [backups,setBackups]=useState(null);
@@ -1189,7 +1189,7 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,setContracts
   async function restaurar(b){
     if(!await askConfirm(`Restaurar o backup automático de ${b.id.slice(7)}?\nIsso substituirá TODOS os dados atuais.`))return;
     const d=b.data;
-    setContracts(d.contracts||[]);setCosts(d.costs||[]);setManual(d.manual||[]);setClientesExtra(d.clientesExtra||[]);setContatos(d.contatos||{});
+    setContracts(d.contracts||[]);setCosts(d.costs||[]);setManual(d.manual||[]);setClientesExtra(d.clientesExtra||[]);setContatos(d.contatos||{});setAudiencias(d.audiencias||[]);
     setMsg("Backup restaurado! Os dados serão sincronizados.");setTimeout(()=>setMsg(""),4000);
   }
   function baixar(b){
@@ -1198,7 +1198,7 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,setContracts
   }
 
   function exportBackup(){
-    const data={contracts,costs,manual,clientesExtra,contatos,exportedAt:new Date().toISOString()};
+    const data={contracts,costs,manual,clientesExtra,contatos,audiencias,exportedAt:new Date().toISOString()};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);
     a.download=`lexcontrol-backup-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.json`;
@@ -1217,6 +1217,7 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,setContracts
         if(Array.isArray(data.manual))setManual(data.manual);
         if(Array.isArray(data.clientesExtra))setClientesExtra(data.clientesExtra);
         if(data.contatos&&typeof data.contatos==="object")setContatos(data.contatos);
+        if(Array.isArray(data.audiencias))setAudiencias(data.audiencias);
         setMsg("Backup importado! Os dados serão sincronizados.");setTimeout(()=>setMsg(""),4000);
       }catch(err){setMsg("Erro: arquivo inválido — "+err.message);}
     };
@@ -1368,8 +1369,208 @@ function TabLinks({T}){
 
 /* ── Relógio ao vivo ── */
 const DIAS_SEMANA = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
+/* ═══ AUDIÊNCIAS ═══ */
+const p2=n=>String(n).padStart(2,"0");
+const toISO=d=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+const hojeISO=()=>toISO(new Date());
+const parseISO=s=>{const [y,m,d]=(s||"").split("-").map(Number);return new Date(y||1970,(m||1)-1,d||1);};
+const diasAte=iso=>Math.round((parseISO(iso)-parseISO(hojeISO()))/864e5);
+const fmtBR=iso=>iso?iso.split("-").reverse().join("/"):"—";
+const rotuloDias=n=>n===0?"Hoje":n===1?"Amanhã":n>1?`em ${n} dias`:n===-1?"Ontem":`há ${-n} dias`;
+const AUD_TIPOS=["Conciliação","Instrução","Instrução e Julgamento","Una","Perícia","Julgamento","Sustentação oral","Admonitória","Outra"];
+const AUD_STATUS={
+  agendada:{label:"Agendada",color:"#3b82f6"},
+  realizada:{label:"Realizada",color:"#10b981"},
+  redesignada:{label:"Redesignada",color:"#a78bfa"},
+  cancelada:{label:"Cancelada",color:"#94a3b8"},
+};
+const newAud=()=>({id:null,data:hojeISO(),hora:"09:00",cliente:"",numeroProcesso:"",tipo:"Conciliação",status:"agendada",modalidade:"Presencial",local:"",link:"",advogado:ADV_PRINCIPAL,observacoes:""});
+const ordAud=(a,b)=>(a.data+(a.hora||"")).localeCompare(b.data+(b.hora||""));
+
+function MiniCalendar({T,audiencias,setTab,onClose}){
+  const hoje=new Date();
+  const [ref,setRef]=useState(new Date(hoje.getFullYear(),hoje.getMonth(),1));
+  const [sel,setSel]=useState(toISO(hoje));
+  const boxRef=useRef(null);
+  useEffect(()=>{
+    const down=e=>{if(boxRef.current&&!boxRef.current.contains(e.target)&&!e.target.closest?.(".cal-trigger"))onClose();};
+    const key=e=>{if(e.key==="Escape")onClose();};
+    document.addEventListener("mousedown",down);document.addEventListener("keydown",key);
+    return()=>{document.removeEventListener("mousedown",down);document.removeEventListener("keydown",key);};
+  },[]);
+  const porDia={};
+  audiencias.filter(a=>a.status!=="cancelada").forEach(a=>{(porDia[a.data]=porDia[a.data]||[]).push(a);});
+  const y=ref.getFullYear(),m=ref.getMonth();
+  const inicio=new Date(y,m,1).getDay(),dias=new Date(y,m+1,0).getDate();
+  const cels=[...Array(inicio).fill(null),...Array.from({length:dias},(_,i)=>i+1)];
+  const doDia=(porDia[sel]||[]).slice().sort(ordAud);
+  const nav=d=>setRef(new Date(y,m+d,1));
+  const arrow={background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,width:30,height:30,color:T.text,cursor:"pointer"};
+  return(
+    <div ref={boxRef} className="pop cal-pop" style={{background:T.card,border:`1px solid ${T.border}`,boxShadow:"var(--shadow-lg)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+        <button className="bhov" style={arrow} onClick={()=>nav(-1)} aria-label="Mês anterior"><ChevronLeft size={16}/></button>
+        <div style={{flex:1,textAlign:"center",fontFamily:"var(--font-display)",fontSize:18,fontWeight:700,color:T.strong}}>{MFL[m]} {y}</div>
+        <button className="bhov" style={arrow} onClick={()=>nav(1)} aria-label="Próximo mês"><ChevronRight size={16}/></button>
+      </div>
+      <div className="cal-grid" style={{color:T.muted,fontSize:10,fontWeight:600,marginBottom:4}}>
+        {["D","S","T","Q","Q","S","S"].map((d,i)=><div key={i} style={{textAlign:"center"}}>{d}</div>)}
+      </div>
+      <div className="cal-grid">
+        {cels.map((d,i)=>{
+          if(!d)return <div key={i}/>;
+          const iso=`${y}-${p2(m+1)}-${p2(d)}`;
+          const n=(porDia[iso]||[]).length,ehHoje=iso===toISO(hoje),ehSel=iso===sel;
+          return(
+            <button key={i} onClick={()=>setSel(iso)} className="cal-day"
+              style={{background:ehSel?T.accent:"transparent",color:ehSel?T.accentText:T.text,outline:ehHoje&&!ehSel?`2px solid ${T.accent}`:"none",fontWeight:ehHoje||n?700:400}}>
+              {d}
+              {n>0&&<span className="cal-dot" style={{background:ehSel?T.accentText:"#dc2626"}}>{n>1?n:""}</span>}
+            </button>);
+        })}
+      </div>
+      <div style={{borderTop:`1px solid ${T.border}`,marginTop:10,paddingTop:10}}>
+        <div style={{fontSize:11,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{fmtBR(sel)} · {doDia.length?`${doDia.length} audiência${doDia.length>1?"s":""}`:"sem audiências"}</div>
+        {doDia.map(a=>(
+          <div key={a.id} style={{display:"flex",gap:8,fontSize:12,padding:"4px 0",color:T.text}}>
+            <b style={{color:T.accent,minWidth:42}}>{a.hora||"—"}</b>
+            <span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.cliente||"—"} <span style={{color:T.muted}}>· {a.tipo}</span></span>
+          </div>))}
+        <div style={{display:"flex",gap:8,marginTop:10}}>
+          <Btn T={T} variant="ghost" style={{flex:1,padding:"6px 10px",fontSize:12}} onClick={()=>{setRef(new Date(hoje.getFullYear(),hoje.getMonth(),1));setSel(toISO(hoje));}}>Hoje</Btn>
+          <Btn T={T} style={{flex:2,padding:"6px 10px",fontSize:12}} onClick={()=>{setTab("audiencias");onClose();}}>Ver audiências</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TabAudiencias({T,audiencias,setAudiencias,contracts,manual,clientesExtra}){
+  const [filtro,setFiltro]=useState("proximas");
+  const [busca,setBusca]=useState("");
+  const [modal,setModal]=useState(null); // objeto em edição
+  const hoje=hojeISO();
+
+  const clientes=[...new Map([...contracts.map(c=>[c.cliente,c]),...manual.map(p=>[p.cliente,p]),...(clientesExtra||[]).map(c=>[c.nome,c])]
+    .filter(([n])=>n&&n.trim()).map(([n,o])=>[n.trim().toLowerCase(),{nome:n.trim(),tel:o.telefone||"",proc:o.numeroProcesso||""}])).values()];
+  const telDe=nome=>(clientes.find(c=>c.nome.toLowerCase()===(nome||"").trim().toLowerCase())||{}).tel||"";
+
+  const lista=audiencias.filter(a=>{
+    if(busca&&!`${a.cliente} ${a.numeroProcesso} ${a.local} ${a.tipo}`.toLowerCase().includes(busca.toLowerCase()))return false;
+    if(filtro==="proximas")return a.data>=hoje&&a.status==="agendada";
+    if(filtro==="passadas")return a.data<hoje||a.status!=="agendada";
+    return true;
+  }).sort((a,b)=>filtro==="passadas"?ordAud(b,a):ordAud(a,b));
+
+  const urgentes=audiencias.filter(a=>a.status==="agendada"&&diasAte(a.data)>=0&&diasAte(a.data)<=1).sort(ordAud);
+
+  function salvar(){
+    if(!modal.cliente.trim()||!modal.data)return;
+    setAudiencias(p=>modal.id?p.map(a=>a.id===modal.id?modal:a):[...p,{...modal,id:genId()}]);
+    setModal(null);
+  }
+  async function excluir(a){if(!await askConfirm(`Excluir a audiência de ${a.cliente} em ${fmtBR(a.data)}?`))return;setAudiencias(p=>p.filter(x=>x.id!==a.id));}
+  const setStatus=(a,st)=>setAudiencias(p=>p.map(x=>x.id===a.id?{...x,status:st}:x));
+  function lembrar(a){
+    const tel=telDe(a.cliente).replace(/\D/g,"");
+    if(!tel){notify("Este cliente não tem telefone cadastrado.");return;}
+    const num=tel.length===10||tel.length===11?"55"+tel:tel;
+    const onde=a.modalidade==="Virtual"?`por videoconferência${a.link?` (link: ${a.link})`:""}`:`${a.local||"no local a confirmar"}`;
+    const msg=`Olá, ${a.cliente}! Passando para lembrar da sua audiência${a.tipo?` de ${a.tipo}`:""}${a.numeroProcesso?` (processo nº ${a.numeroProcesso})`:""}, marcada para ${fmtBR(a.data)}${a.hora?` às ${a.hora}`:""}, ${onde}.\n\nQualquer dúvida, estou à disposição.\n\n${ADV_PRINCIPAL} Savi — Advocacia`;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,"_blank");
+  }
+  const seg=(id,label)=>(<button key={id} onClick={()=>setFiltro(id)} className="bhov"
+    style={{background:filtro===id?T.tabActive:"transparent",color:filtro===id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"7px 14px",fontSize:13,fontWeight:filtro===id?600:500,cursor:"pointer"}}>{label}</button>);
+  const iconBtn={border:"none",borderRadius:6,padding:"6px 9px",cursor:"pointer"};
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:3,background:T.card2,border:`1px solid ${T.border}`,borderRadius:10,padding:3}}>
+          {seg("proximas","Próximas")}{seg("passadas","Passadas")}{seg("todas","Todas")}
+        </div>
+        <div style={{flex:1}}/>
+        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar cliente, processo, vara..." className="field" style={{background:T.inp,border:`1px solid ${T.border2}`,color:T.text,minWidth:260}}/>
+        <Btn T={T} onClick={()=>setModal(newAud())}><Plus size={15}/> Nova Audiência</Btn>
+      </div>
+
+      {urgentes.length>0&&(
+        <div style={{background:T.warnBg,border:`1px solid ${T.warnText}55`,color:T.warnText,borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"flex-start"}}>
+          <BellRing size={18} style={{flexShrink:0,marginTop:1}}/>
+          <div style={{fontSize:13}}>
+            {urgentes.map(a=><div key={a.id}><b>{rotuloDias(diasAte(a.data))}{a.hora?` às ${a.hora}`:""}</b> — {a.cliente} · {a.tipo}{a.local?` · ${a.local}`:""}</div>)}
+          </div>
+        </div>)}
+
+      {lista.length===0
+        ?<div style={{textAlign:"center",color:T.muted,padding:"60px 0"}}><Gavel size={38} strokeWidth={1.4} style={{margin:"0 auto 12px",display:"block"}}/>
+          {filtro==="proximas"?"Nenhuma audiência agendada. Clique em “Nova Audiência” para cadastrar.":"Nenhuma audiência encontrada."}</div>
+        :<div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {lista.map(a=>{
+            const st=AUD_STATUS[a.status]||AUD_STATUS.agendada,d=diasAte(a.data),dt=parseISO(a.data);
+            const cor=a.status!=="agendada"?T.muted:d<0?T.dangerText:d<=1?T.warnText:T.accent;
+            return(
+              <div key={a.id} className="card-lift" style={{display:"flex",alignItems:"center",gap:16,background:T.card,border:`1px solid ${T.border}`,borderLeft:`4px solid ${st.color}`,borderRadius:12,padding:"14px 18px",boxShadow:"var(--shadow-sm)",opacity:a.status==="cancelada"?.65:1}}>
+                <div style={{textAlign:"center",minWidth:58}}>
+                  <div style={{fontFamily:"var(--font-display)",fontSize:30,fontWeight:700,lineHeight:1,color:cor}}>{p2(dt.getDate())}</div>
+                  <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".06em",color:T.muted}}>{MFS[dt.getMonth()]} {String(dt.getFullYear()).slice(2)}</div>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <span style={{fontFamily:"var(--font-display)",fontSize:18,fontWeight:700,color:T.strong}}>{a.cliente}</span>
+                    <span style={{background:st.color+"22",color:st.color,border:`1px solid ${st.color}55`,borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:600}}>{st.label}</span>
+                    <span style={{fontSize:12,color:cor,fontWeight:600}}>{rotuloDias(d)}</span>
+                  </div>
+                  <div style={{display:"flex",gap:14,flexWrap:"wrap",fontSize:12,color:T.muted,marginTop:4}}>
+                    <span style={{display:"inline-flex",alignItems:"center",gap:4}}><Clock3 size={12}/> {a.hora||"—"}</span>
+                    <span>{a.tipo}</span>
+                    {a.numeroProcesso&&<span>Proc. {a.numeroProcesso}</span>}
+                    <span style={{display:"inline-flex",alignItems:"center",gap:4}}>{a.modalidade==="Virtual"?<Video size={12}/>:<MapPin size={12}/>}
+                      {a.modalidade==="Virtual"&&a.link?<a href={a.link} target="_blank" rel="noopener noreferrer" style={{color:T.accent}}>Entrar na sala</a>:(a.local||a.modalidade)}</span>
+                    {a.advogado&&<span>{a.advogado}</span>}
+                  </div>
+                  {a.observacoes&&<div style={{fontSize:12,color:T.muted,marginTop:4,fontStyle:"italic"}}>{a.observacoes}</div>}
+                </div>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                  {a.status==="agendada"&&<button className="bhov" title="Marcar como realizada" onClick={()=>setStatus(a,"realizada")} style={{...iconBtn,background:T.successBg,color:T.successText}}><Check size={14}/></button>}
+                  {a.status!=="agendada"&&<button className="bhov" title="Voltar para agendada" onClick={()=>setStatus(a,"agendada")} style={{...iconBtn,background:T.card2,color:T.muted,border:`1px solid ${T.border2}`}}><Undo2 size={14}/></button>}
+                  <button className="bhov" title="Lembrar o cliente pelo WhatsApp" onClick={()=>lembrar(a)} style={{...iconBtn,background:"#22c55e22",color:"#16a34a",border:"1px solid #22c55e44"}}><MessageCircle size={14}/></button>
+                  <button className="bhov" title="Editar" onClick={()=>setModal({...a})} style={{...iconBtn,background:T.card2,color:T.text,border:`1px solid ${T.border2}`}}><Pencil size={14}/></button>
+                  <button className="bhov" title="Excluir" onClick={()=>excluir(a)} style={{...iconBtn,background:T.dangerBg,color:T.dangerText}}><Trash2 size={14}/></button>
+                </div>
+              </div>);
+          })}
+        </div>}
+
+      {modal&&(
+        <Modal T={T} title={modal.id?"Editar audiência":"Nova audiência"} onClose={()=>setModal(null)} width={640}
+          footer={<><Btn T={T} variant="secondary" onClick={()=>setModal(null)}>Cancelar</Btn><Btn T={T} onClick={salvar} disabled={!modal.cliente.trim()||!modal.data}><Save size={14}/> Salvar</Btn></>}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Fld T={T} label="Data *" type="date" value={modal.data} onChange={v=>setModal(m=>({...m,data:v}))}/>
+            <Fld T={T} label="Hora" type="time" value={modal.hora} onChange={v=>setModal(m=>({...m,hora:v}))}/>
+            <div style={{display:"flex",flexDirection:"column",gap:5,gridColumn:"1/-1"}}>
+              <label className="field-label" style={{color:T.muted}}>Cliente *</label>
+              <input list="aud-clientes" value={modal.cliente} className="field" style={{background:T.inp,border:`1px solid ${T.border2}`,color:T.text}}
+                onChange={e=>{const v=e.target.value;const c=clientes.find(x=>x.nome.toLowerCase()===v.trim().toLowerCase());setModal(m=>({...m,cliente:v,numeroProcesso:m.numeroProcesso||(c?c.proc:"")}));}}/>
+              <datalist id="aud-clientes">{clientes.map(c=><option key={c.nome} value={c.nome}/>)}</datalist>
+            </div>
+            <Fld T={T} label="Nº do processo" value={modal.numeroProcesso} onChange={v=>setModal(m=>({...m,numeroProcesso:v}))} ph="0000000-00.0000.0.00.0000"/>
+            <Fld T={T} label="Tipo de audiência" value={modal.tipo} options={AUD_TIPOS} onChange={v=>setModal(m=>({...m,tipo:v}))}/>
+            <Fld T={T} label="Modalidade" value={modal.modalidade} options={["Presencial","Virtual"]} onChange={v=>setModal(m=>({...m,modalidade:v}))}/>
+            <Fld T={T} label="Situação" value={modal.status} options={Object.entries(AUD_STATUS).map(([v,c])=>({v,l:c.label}))} onChange={v=>setModal(m=>({...m,status:v}))}/>
+            {modal.modalidade==="Virtual"
+              ?<div style={{gridColumn:"1/-1"}}><Fld T={T} label="Link da sala" value={modal.link} onChange={v=>setModal(m=>({...m,link:v}))} ph="https://..."/></div>
+              :<div style={{gridColumn:"1/-1"}}><Fld T={T} label="Vara / Local" value={modal.local} onChange={v=>setModal(m=>({...m,local:v}))} ph="Ex.: 2ª Vara Cível de Cascavel"/></div>}
+            <Fld T={T} label="Advogado(a)" value={modal.advogado} onChange={v=>setModal(m=>({...m,advogado:v}))}/>
+            <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Observações" type="textarea" value={modal.observacoes} onChange={v=>setModal(m=>({...m,observacoes:v}))} ph="Documentos a levar, testemunhas, orientações..."/></div>
+          </div>
+        </Modal>)}
+    </div>
+  );
+}
+
 /* ═══ PAINEL INICIAL ═══ */
-function TabInicio({T,contracts,manual,costs,contatos,clientesExtra,setTab}){
+function TabInicio({T,contracts,manual,costs,contatos,clientesExtra,audiencias,setTab}){
   const now=new Date(),mes=now.getMonth()+1,ano=now.getFullYear(),cur=ano*12+mes;
   const itens=[
     ...contracts.flatMap(c=>(c.schedule||[]).map(x=>({cliente:c.cliente,desc:x.descricao||"Parcela",mes:x.mes,ano:x.ano,valor:fmtN(x.valor),pago:!!x.pago}))),
@@ -1390,6 +1591,7 @@ function TabInicio({T,contracts,manual,costs,contatos,clientesExtra,setTab}){
   const semAtualizacao=[...nomes.entries()].map(([k,n])=>{const u=(contatos||{})[k];return{nome:n,dias:u?Math.floor((Date.now()-new Date(u).getTime())/864e5):null};})
     .filter(x=>x.dias===null||x.dias>15).sort((a,b)=>(b.dias??9999)-(a.dias??9999));
 
+  const proxAud=(audiencias||[]).filter(a=>a.status==="agendada"&&diasAte(a.data)>=0&&diasAte(a.data)<=7).sort(ordAud);
   const Card=({children,style})=><div className="card-lift" style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"18px 20px",boxShadow:"var(--shadow-sm)",...style}}>{children}</div>;
   const Titulo=({icon:I,children,color})=><div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".06em",color:color||T.muted,marginBottom:12}}><I size={15}/>{children}</div>;
   const Kpi=({label,valor,cor,icon:I})=>(
@@ -1429,6 +1631,12 @@ function TabInicio({T,contracts,manual,costs,contatos,clientesExtra,setTab}){
           {proximos.length===0?<Vazio>Nada pendente para {MFL[mes-1]}.</Vazio>
             :proximos.slice(0,6).map((x,i)=><Linha key={i} a={x.cliente||"—"} b={x.desc} c={fmt(x.valor)} cor={T.warnText}/>)}
           {proximos.length>6&&<div style={{fontSize:12,color:T.muted,paddingTop:8}}>+ {proximos.length-6} outros</div>}
+        </Card>
+        <Card>
+          <Titulo icon={Gavel} color={proxAud.some(a=>diasAte(a.data)<=1)?T.warnText:T.muted}>Audiências nos próximos 7 dias {proxAud.length>0&&`· ${proxAud.length}`}</Titulo>
+          {proxAud.length===0?<Vazio>Nenhuma audiência nesta semana.</Vazio>
+            :proxAud.slice(0,5).map(a=><Linha key={a.id} a={a.cliente||"—"} b={`${a.tipo}${a.local?" · "+a.local:""}`} c={`${rotuloDias(diasAte(a.data))}${a.hora?" "+a.hora:""}`} cor={diasAte(a.data)<=1?T.warnText:T.accent}/>)}
+          <div style={{marginTop:12}}><Btn T={T} variant="ghost" onClick={()=>setTab("audiencias")}>Ver audiências</Btn></div>
         </Card>
         <Card>
           <Titulo icon={Clock3} color={semAtualizacao.length?T.warnText:T.muted}>Clientes sem atualização {semAtualizacao.length>0&&`· ${semAtualizacao.length}`}</Titulo>
@@ -1479,6 +1687,8 @@ function App(){
   const [manual,setManual]       = useState([]);
   const [clientesExtra,setClientesExtra] = useState([]);
   const [contatos,setContatos] = useState({});   // {nomeminusculo: ISO da última atualização enviada}
+  const [audiencias,setAudiencias] = useState([]);
+  const [calOpen,setCalOpen] = useState(false);
   const marcarContato=nome=>setContatos(p=>({...p,[nome.trim().toLowerCase()]:new Date().toISOString()}));
 
   /* ── 2. Estados de sync (exatamente como no prompt) ── */
@@ -1504,6 +1714,7 @@ function App(){
           if(Array.isArray(d.manual))     setManual(d.manual);
           if(Array.isArray(d.clientesExtra)) setClientesExtra(d.clientesExtra);
           if(d.contatos&&typeof d.contatos==="object") setContatos(d.contatos);
+          if(Array.isArray(d.audiencias)) setAudiencias(d.audiencias);
           if(d.theme)                     setThemeId(d.theme);
         }
         setFbLoaded(true);
@@ -1542,6 +1753,7 @@ function App(){
                          manual,
                          clientesExtra,
                          contatos,
+                         audiencias,
                          theme: themeId,
                          updatedAt: new Date().toISOString(),
                        });
@@ -1553,7 +1765,7 @@ function App(){
         setFbError(e.message || "Erro ao salvar");
       }
     }, 1500);
-  },[contracts, costs, manual, clientesExtra, contatos, themeId, fbLoaded]);
+  },[contracts, costs, manual, clientesExtra, contatos, audiencias, themeId, fbLoaded]);
   //                                    ^^^^^^^^^
   //  fbLoaded no array faz o primeiro save rodar logo
   //  após o carregamento — necessário para persistir
@@ -1565,7 +1777,7 @@ function App(){
     if(!fbLoaded||backupFeito.current)return;
     backupFeito.current=true;
     if(contracts.length+manual.length+costs.length+clientesExtra.length===0)return;
-    runAutoBackup(backupPayload({contracts,costs,manual,clientesExtra,contatos})).catch(()=>{});
+    runAutoBackup(backupPayload({contracts,costs,manual,clientesExtra,contatos,audiencias})).catch(()=>{});
   },[fbLoaded]);
 
   /* ── 5. Indicador visual (prompt §6) ──────────────── */
@@ -1590,6 +1802,7 @@ function App(){
                    : fbLoaded ? "#16a34a66"
                    :             T.sWaitDot+"44";
   const syncPulse = !fbLoaded || fbSaving;
+  const audProx = audiencias.filter(a=>a.status==="agendada"&&diasAte(a.data)>=0&&diasAte(a.data)<=3).length;
 
   const TABS_MAIN=[
     {id:"inicio",label:"Início",icon:LayoutDashboard},
@@ -1597,6 +1810,7 @@ function App(){
     {id:"pagamentos",label:"Pagamentos",icon:Wallet},
     {id:"custos",label:"Custos",icon:Building2},
     {id:"clientes",label:"Clientes",icon:Users},
+    {id:"audiencias",label:"Audiências",icon:Gavel},
     {id:"relatorio",label:"Relatório",icon:BarChart3},
   ];
   const TABS_SEC=[
@@ -1621,13 +1835,13 @@ function App(){
           {TABS_MAIN.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} title={t.label} className={`nav-item${tab===t.id?" active":""}`}
               style={tab===t.id?{background:T.tabActive,color:T.tabActiveText}:{color:T.muted}}>
-              <t.icon size={18} strokeWidth={1.9}/><span className="nav-label">{t.label}</span>
+              <t.icon size={18} strokeWidth={1.9}/><span className="nav-label">{t.label}</span>{t.id==="audiencias"&&audProx>0&&<span className="nav-badge">{audProx}</span>}
             </button>))}
           <div style={{height:1,background:T.border,margin:"10px 6px"}}/>
           {TABS_SEC.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} title={t.label} className={`nav-item${tab===t.id?" active":""}`}
               style={tab===t.id?{background:T.tabActive,color:T.tabActiveText}:{color:T.muted}}>
-              <t.icon size={18} strokeWidth={1.9}/><span className="nav-label">{t.label}</span>
+              <t.icon size={18} strokeWidth={1.9}/><span className="nav-label">{t.label}</span>{t.id==="audiencias"&&audProx>0&&<span className="nav-badge">{audProx}</span>}
             </button>))}
           <div style={{flex:1}}/>
           <div className="theme-row" style={{display:"flex",gap:4,padding:"0 4px 10px"}}>
@@ -1651,7 +1865,14 @@ function App(){
               <span style={{color:cloudColor}}>{cloudMsg}</span>
               {fbError&&<button onClick={()=>setFbError(null)} aria-label="Dispensar" style={{background:"none",border:"none",color:"#f87171",cursor:"pointer"}}><X size={12}/></button>}
             </div>
-            <Clock T={T}/>
+            <div style={{position:"relative"}}>
+              <button className="cal-trigger bhov" onClick={()=>setCalOpen(o=>!o)} aria-label="Abrir calendário" title="Calendário de audiências"
+                style={{background:calOpen?T.card2:"transparent",border:`1px solid ${calOpen?T.border:"transparent"}`,borderRadius:10,padding:"5px 10px",cursor:"pointer",gap:10,position:"relative"}}>
+                <CalendarDays size={20} color={T.accent}/><Clock T={T}/>
+                {audProx>0&&<span className="cal-alert" title={`${audProx} audiência(s) nos próximos 3 dias`}/>}
+              </button>
+              {calOpen&&<MiniCalendar T={T} audiencias={audiencias} setTab={setTab} onClose={()=>setCalOpen(false)}/>}
+            </div>
             <button onClick={()=>auth.signOut()} className="bhov" title="Sair" style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"7px 11px",color:T.muted,fontSize:12,cursor:"pointer"}}><LogOut size={14}/> Sair</button>
           </header>
 
@@ -1662,13 +1883,14 @@ function App(){
             <div className="spin" style={{width:32,height:32,border:`3px solid ${T.border2}`,borderTopColor:T.accent,borderRadius:"50%"}}/>
             Conectando...
           </div>
-          :tab==="inicio"       ?<TabInicio T={T} contracts={contracts} manual={manual} costs={costs} contatos={contatos} clientesExtra={clientesExtra} setTab={setTab}/>
+          :tab==="inicio"       ?<TabInicio T={T} contracts={contracts} manual={manual} costs={costs} contatos={contatos} clientesExtra={clientesExtra} audiencias={audiencias} setTab={setTab}/>
+          :tab==="audiencias"   ?<TabAudiencias T={T} audiencias={audiencias} setAudiencias={setAudiencias} contracts={contracts} manual={manual} clientesExtra={clientesExtra}/>
           :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts}/>
           :tab==="pagamentos"   ?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual}/>
           :tab==="custos"       ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
           :tab==="clientes"     ?<TabClientes T={T} contracts={contracts} manual={manual} setTab={setTab} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} contatos={contatos} marcarContato={marcarContato}/>
           :tab==="relatorio"    ?<TabRelatorio T={T} contracts={contracts} manual={manual} costs={costs}/>
-          :tab==="configuracoes"?<TabConfig T={T} contracts={contracts} costs={costs} manual={manual} clientesExtra={clientesExtra} contatos={contatos} setContracts={setContracts} setCosts={setCosts} setManual={setManual} setClientesExtra={setClientesExtra} setContatos={setContatos}/>
+          :tab==="configuracoes"?<TabConfig T={T} contracts={contracts} costs={costs} manual={manual} clientesExtra={clientesExtra} contatos={contatos} audiencias={audiencias} setAudiencias={setAudiencias} setContracts={setContracts} setCosts={setCosts} setManual={setManual} setClientesExtra={setClientesExtra} setContatos={setContatos}/>
           :<TabLinks T={T}/>
         }
       </div>
@@ -1677,7 +1899,7 @@ function App(){
       <nav className="bottomnav" style={{background:T.hdr,borderTop:`1px solid ${T.border}`}}>
         {[...TABS_MAIN,...TABS_SEC].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} className={`bn-item${tab===t.id?" active":""}`} style={{color:tab===t.id?T.accent:T.muted}}>
-            <t.icon size={20} strokeWidth={1.9}/><span>{t.label}</span>
+            <t.icon size={20} strokeWidth={1.9}/><span>{t.label}</span>{t.id==="audiencias"&&audProx>0&&<span className="nav-badge bn">{audProx}</span>}
           </button>))}
       </nav>
       <DialogHost T={T}/>

@@ -92,3 +92,18 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
   .bn-item{flex:1 0 64px;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;font:500 10px var(--font-ui);padding:4px 2px;cursor:pointer;}
   .bn-item.active{font-weight:700;}
 }
+
+/* ── Calendário e audiências ── */
+.cal-pop{position:absolute;right:0;top:calc(100% + 8px);width:316px;border-radius:14px;padding:14px;z-index:200;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-day{position:relative;aspect-ratio:1;border:none;border-radius:9px;font:inherit;font-size:13px;cursor:pointer;transition:background var(--t-fast),transform var(--t-fast);}
+.cal-day:hover{background:var(--border)!important;}
+.cal-day:active{transform:scale(.94);}
+.cal-dot{position:absolute;right:3px;top:3px;min-width:8px;height:8px;border-radius:999px;font-size:8px;line-height:8px;color:var(--card);padding:0 2px;}
+.cal-alert{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#dc2626;border:2px solid var(--card2,#fff);}
+.nav-badge{margin-left:auto;background:#dc2626;color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;}
+.shell.collapsed .nav-badge{position:absolute;top:2px;right:6px;margin:0;min-width:16px;height:16px;font-size:10px;}
+.nav-item{position:relative;}
+.bn-item{position:relative;}
+.nav-badge.bn{position:absolute;top:0;right:calc(50% - 20px);margin:0;min-width:16px;height:16px;font-size:10px;}
+@media (max-width:900px){.cal-pop{position:fixed;left:12px;right:12px;top:58px;width:auto;}}
