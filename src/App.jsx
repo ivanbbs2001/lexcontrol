@@ -1665,7 +1665,7 @@ function Clock({T}){
   useEffect(()=>{const id=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(id);},[]);
   const p=n=>String(n).padStart(2,"0");
   return(
-    <div className="clock" style={{color:T.muted,fontSize:12,textAlign:"right",lineHeight:1.35}}>
+    <div className="clock" style={{color:T.muted,fontSize:12,textAlign:"center",lineHeight:1.35,minWidth:150}}>
       <div>{DIAS_SEMANA[now.getDay()]}, {p(now.getDate())}/{p(now.getMonth()+1)}/{now.getFullYear()}</div>
       <div style={{color:T.accent,fontWeight:600,fontSize:13}}>{p(now.getHours())}:{p(now.getMinutes())}:{p(now.getSeconds())}</div>
     </div>
