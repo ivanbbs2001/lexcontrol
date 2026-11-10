@@ -4,6 +4,7 @@ import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
 import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
+import {Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
 
@@ -11,7 +12,7 @@ import {runAutoBackup,listBackups,backupPayload} from "./backup";
    THEMES
 ═══════════════════════════════════════════════════════ */
 const THEMES={
-  industrial:{id:"industrial",label:"🔩 Industrial",
+  industrial:{id:"industrial",label:"Industrial",
     bg:"#c5bdb0",card:"#d5cfc3",card2:"#cdc7ba",border:"#a09890",border2:"#767068",
     text:"#1a1410",muted:"#58504a",strong:"#0c0804",
     accent:"#bf4e18",accentText:"#fff",accentDim:"#f2ddd4",
@@ -27,7 +28,7 @@ const THEMES={
     sErrBg:"#eedcdc",sErrTx:"#7a1010",sErrDot:"#ef4444",
     sWaitBg:"#ece4c8",sWaitTx:"#7a4808",sWaitDot:"#f59e0b",
   },
-  dark:{id:"dark",label:"🌙 Escuro",
+  dark:{id:"dark",label:"Escuro",
     bg:"#06101e",card:"#0c1828",card2:"#091422",border:"#192c44",border2:"#243d5c",
     text:"#c2d2e6",muted:"#4e6278",strong:"#daeaf8",
     accent:"#d4b86a",accentText:"#06101e",accentDim:"#1c1508",
@@ -43,7 +44,7 @@ const THEMES={
     sErrBg:"#270d0d",sErrTx:"#f87171",sErrDot:"#ef4444",
     sWaitBg:"#1a1a08",sWaitTx:"#fbbf24",sWaitDot:"#f59e0b",
   },
-  light:{id:"light",label:"☀️ Claro",
+  light:{id:"light",label:"Claro",
     bg:"#f0ebe0",card:"#fdfaf4",card2:"#f5f0e8",border:"#d8cdb8",border2:"#b8a888",
     text:"#241808",muted:"#7a6850",strong:"#100c04",
     accent:"#8a6010",accentText:"#fff",accentDim:"#fdf5e0",
@@ -99,33 +100,31 @@ const newP=()=>({id:null,cliente:"",advogado:ADV_PRINCIPAL,coAdvogado:"",percCoA
 /* ═══════════════════════════════════════════════════════
    ATOMS
 ═══════════════════════════════════════════════════════ */
-const Btn=({T,variant="primary",onClick,children,style={},disabled})=>{
-  const v={primary:{background:T.accent,color:T.accentText},secondary:{background:T.border,color:T.text,fontWeight:400},danger:{background:T.dangerBg,color:T.dangerText,border:`1px solid ${T.dangerBorder}`},ghost:{background:"transparent",color:T.muted,border:`1px solid ${T.border2}`}};
-  return <button onClick={onClick} disabled={disabled} style={{border:"none",borderRadius:7,padding:"8px 16px",cursor:disabled?"not-allowed":"pointer",fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:600,opacity:disabled?.5:1,...v[variant],...style}}>{children}</button>;
-};
+const Btn=({T,variant="primary",onClick,children,style={},disabled})=>
+  <button className={`btn btn-${variant}`} onClick={onClick} disabled={disabled} style={style}>{children}</button>;
 const Fld=({T,label,value,onChange,type="text",options,ph="",style={}})=>(
   <div style={{display:"flex",flexDirection:"column",gap:5}}>
-    <label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</label>
+    <label className="field-label" style={{color:T.muted}}>{label}</label>
     {options
-      ?<select value={value} onChange={e=>onChange(e.target.value)} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,...style}}>{options.map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}</select>
+      ?<select value={value} onChange={e=>onChange(e.target.value)} className="field" style={{background:T.inp,border:`1px solid ${T.border2}`,color:T.text,...style}}>{options.map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}</select>
       :type==="textarea"
-        ?<textarea value={value} onChange={e=>onChange(e.target.value)} rows={3} placeholder={ph} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,resize:"vertical",...style}}/>
-        :<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,...style}}/>}
+        ?<textarea value={value} onChange={e=>onChange(e.target.value)} rows={3} placeholder={ph} className="field" style={{background:T.inp,border:`1px solid ${T.border2}`,color:T.text,resize:"vertical",...style}}/>
+        :<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} className="field" style={{background:T.inp,border:`1px solid ${T.border2}`,color:T.text,...style}}/>}
   </div>
 );
 const StatCard=({T,label,value,color,sub,accent=false})=>(
-  <div style={{background:accent?color+"22":T.card,border:`1px solid ${accent?color+"66":T.border}`,borderRadius:10,padding:"13px 16px",flex:"1 1 105px",textAlign:"center"}}>
+  <div style={{background:accent?color+"22":T.card,border:`1px solid ${accent?color+"66":T.border}`,borderRadius:10,padding:"13px 16px",flex:"1 1 105px",textAlign:"center",boxShadow:"var(--shadow-sm)"}} className="card-lift">
     <div style={{fontSize:24,fontWeight:700,color:color??T.accent,fontFamily:"'Cormorant Garamond',serif",lineHeight:1}}>{value}</div>
     {sub&&<div style={{fontSize:12,color:color??T.accent,fontWeight:600,marginTop:2}}>{sub}</div>}
     <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:4}}>{label}</div>
   </div>
 );
 const Modal=({T,title,sub,onClose,children,footer,width=720})=>(
-  <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"#00000088",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}}>
-    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,width:"100%",maxWidth:width,maxHeight:"92vh",display:"flex",flexDirection:"column",boxShadow:"0 30px 90px #0009"}}>
+  <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"#00000088",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}}>
+    <div className="pop" style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,width:"100%",maxWidth:width,maxHeight:"92vh",display:"flex",flexDirection:"column",boxShadow:"var(--shadow-lg)"}}>
       <div style={{padding:"18px 24px 14px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div><div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>{title}</div>{sub&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>{sub}</div>}</div>
-        <button onClick={onClose} style={{background:"none",border:"none",color:T.muted,fontSize:20,cursor:"pointer"}}>✕</button>
+        <button onClick={onClose} className="bhov" aria-label="Fechar" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",display:"flex"}}><X size={20}/></button>
       </div>
       <div style={{overflowY:"auto",flex:1,padding:"18px 24px"}}>{children}</div>
       {footer&&<div style={{padding:"12px 24px",borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"flex-end",gap:10}}>{footer}</div>}
@@ -184,8 +183,8 @@ function CForm({T,data,set,nA,sA,nS,sS}){
         ))}
         {(data.coAdvogados||[]).length>0&&<div style={{background:T.successBg,borderRadius:7,padding:"7px 10px",fontSize:12,color:T.successText,marginBottom:8}}>{data.advogado||"Adv. Principal"}: {100-coSum}% = {fmt(fmtN(data.valorTotal)*(100-coSum)/100)}</div>}
         <div style={{display:"flex",gap:8}}>
-          <input placeholder="Nome" value={nA.nome} onChange={e=>sA(d=>({...d,nome:e.target.value}))} style={{flex:1,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
-          <input placeholder="%" value={nA.pct} onChange={e=>sA(d=>({...d,pct:e.target.value}))} type="number" style={{width:70,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+          <input placeholder="Nome" value={nA.nome} onChange={e=>sA(d=>({...d,nome:e.target.value}))} style={{flex:1,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
+          <input placeholder="%" value={nA.pct} onChange={e=>sA(d=>({...d,pct:e.target.value}))} type="number" style={{width:70,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
           <Btn T={T} variant="ghost" onClick={addA}>+ Add</Btn>
         </div>
       </div>
@@ -201,10 +200,10 @@ function CForm({T,data,set,nA,sA,nS,sS}){
         </div>
       ))}
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>
-        <select value={nS.mes} onChange={e=>sS(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
-        <input type="number" value={nS.ano} onChange={e=>sS(d=>({...d,ano:Number(e.target.value)}))} style={{width:80,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
-        <input placeholder="R$" value={nS.valor} onChange={e=>sS(d=>({...d,valor:e.target.value}))} style={{width:100,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
-        <input placeholder="Descrição (Parcela 1/3…)" value={nS.descricao} onChange={e=>sS(d=>({...d,descricao:e.target.value}))} style={{flex:1,minWidth:140,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+        <select value={nS.mes} onChange={e=>sS(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
+        <input type="number" value={nS.ano} onChange={e=>sS(d=>({...d,ano:Number(e.target.value)}))} style={{width:80,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
+        <input placeholder="R$" value={nS.valor} onChange={e=>sS(d=>({...d,valor:e.target.value}))} style={{width:100,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
+        <input placeholder="Descrição (Parcela 1/3…)" value={nS.descricao} onChange={e=>sS(d=>({...d,descricao:e.target.value}))} style={{flex:1,minWidth:140,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
         <Btn T={T} variant="ghost" onClick={addS}>+ Parcela</Btn>
       </div>
     </div>
@@ -267,7 +266,7 @@ function TabContratos({T,contracts,setContracts}){
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
           <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>+ Novo Contrato / Processo</div>
           <CForm T={T} data={nd} set={setNd} nA={nA2} sA={sA2} nS={nS2} sS={sS2}/>
-          <div style={{display:"flex",gap:8,marginTop:14}}><Btn T={T} variant="secondary" onClick={()=>setShowNew(false)}>Cancelar</Btn><Btn T={T} onClick={saveNew}>💾 Salvar</Btn></div>
+          <div style={{display:"flex",gap:8,marginTop:14}}><Btn T={T} variant="secondary" onClick={()=>setShowNew(false)}>Cancelar</Btn><Btn T={T} onClick={saveNew}>Salvar</Btn></div>
         </div>
       )}
       {contracts.length===0
@@ -283,11 +282,11 @@ function TabContratos({T,contracts,setContracts}){
                   <td style={{padding:"10px 12px",color:T.infoText,fontSize:12}}>{c.advogado||"—"}</td>
                   <td style={{padding:"10px 12px",fontSize:11,color:T.muted,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={c.numeroProcesso}>{c.numeroProcesso||"—"}</td>
                   <td style={{padding:"10px 12px",color:T.accent,fontWeight:700}}>{fmt(c.valorTotal)}</td>
-                  <td style={{padding:"10px 12px"}}><select value={c.status} onChange={e=>updSt(c.id,e.target.value)} style={{background:T.card2,color:st.color,border:`1px solid ${st.color}55`,borderRadius:6,padding:"3px 8px",fontSize:11,fontFamily:"'DM Mono',monospace",cursor:"pointer",appearance:"none"}}>{Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</select></td>
+                  <td style={{padding:"10px 12px"}}><select value={c.status} onChange={e=>updSt(c.id,e.target.value)} style={{background:T.card2,color:st.color,border:`1px solid ${st.color}55`,borderRadius:6,padding:"3px 8px",fontSize:11,fontFamily:"var(--font-ui)",cursor:"pointer",appearance:"none"}}>{Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</select></td>
                   <td style={{padding:"10px 12px",color:T.muted,fontSize:11,whiteSpace:"nowrap"}}>{c.dataUpload}</td>
                   <td style={{padding:"10px 12px"}}><div style={{display:"flex",gap:5}}>
-                    <button className="bhov" onClick={()=>openM(c)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}>🔍</button>
-                    <button className="bhov" onClick={()=>del(c.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}>🗑</button>
+                    <button className="bhov" onClick={()=>openM(c)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><Search size={14}/></button>
+                    <button className="bhov" onClick={()=>del(c.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><Trash2 size={14}/></button>
                   </div></td>
                 </tr>);
               })}
@@ -296,7 +295,7 @@ function TabContratos({T,contracts,setContracts}){
         </div>}
       {modal&&(
         <Modal T={T} title={modal.cliente||"Contrato"} sub={`${modal.areaAtuacao||""}${modal.numeroProcesso?" · "+modal.numeroProcesso:""}`} onClose={()=>setModal(null)}
-          footer={editMode?<><Btn T={T} variant="secondary" onClick={()=>{setEditMode(false);setEditData({...modal});}}>Cancelar</Btn><Btn T={T} onClick={saveEdit}>💾 Salvar</Btn></>:<><Btn T={T} variant="danger" onClick={()=>del(modal.id)}>Remover</Btn><Btn T={T} onClick={()=>setEditMode(true)}>✏ Editar</Btn></>}>
+          footer={editMode?<><Btn T={T} variant="secondary" onClick={()=>{setEditMode(false);setEditData({...modal});}}>Cancelar</Btn><Btn T={T} onClick={saveEdit}>Salvar</Btn></>:<><Btn T={T} variant="danger" onClick={()=>del(modal.id)}>Remover</Btn><Btn T={T} onClick={()=>setEditMode(true)}>✏ Editar</Btn></>}>
           {editMode?<CForm T={T} data={editData} set={setEditData} nA={nA} sA={sA} nS={nS} sS={sS}/>
           :<div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
@@ -399,7 +398,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
       {/* form */}
       {showForm&&(
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
-          <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"✏ Editar":"+ Novo Pagamento Manual"}</div>
+          <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"Editar":"+ Novo Pagamento Manual"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
             <Fld T={T} label="Cliente" value={form.cliente} onChange={v=>setForm(d=>({...d,cliente:v}))}/>
             <Fld T={T} label="Advogado" value={form.advogado} onChange={v=>setForm(d=>({...d,advogado:v}))}/>
@@ -408,7 +407,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
             <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Área de Atuação" value={form.areaAtuacao} onChange={v=>setForm(d=>({...d,areaAtuacao:v}))} options={AREAS}/></div>
             <Fld T={T} label="Descrição / Referência" value={form.descricao} onChange={v=>setForm(d=>({...d,descricao:v}))} ph="ex: Honorários, Parcela 2/3…"/>
             <Fld T={T} label="Valor (R$)" value={form.valor} onChange={v=>setForm(d=>({...d,valor:v}))}/>
-            <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Mês</label><select value={form.mes} onChange={e=>setForm(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Mês</label><select value={form.mes} onChange={e=>setForm(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
             <Fld T={T} label="Ano" value={form.ano} onChange={v=>setForm(d=>({...d,ano:Number(v)}))} type="number"/>
             <Fld T={T} label="Forma de Pagamento" value={form.formaPagamento} onChange={v=>setForm(d=>({...d,formaPagamento:v}))} options={FORMAS}/>
             <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:22}}><input type="checkbox" checked={form.pago} onChange={e=>setForm(d=>({...d,pago:e.target.checked}))} style={{accentColor:T.accent,width:16,height:16,cursor:"pointer"}}/><label style={{fontSize:12,color:T.text,cursor:"pointer"}}>Já recebido</label></div>
@@ -416,7 +415,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
             <div style={{gridColumn:"1/-1"}}>
               <label style={{display:"flex",gap:10,alignItems:"center",cursor:"pointer",padding:"10px 14px",background:T.card2,borderRadius:8,border:`1px solid ${T.border}`}}>
                 <input type="checkbox" checked={!!form.temParceria} onChange={e=>setForm(d=>({...d,temParceria:e.target.checked,coAdvogado:"",percCoAdv:""}))} style={{accentColor:T.accent,width:16,height:16,cursor:"pointer"}}/>
-                <span style={{fontSize:12,color:T.text,fontWeight:500}}>🤝 Este pagamento tem parceria com outro advogado</span>
+                <span style={{fontSize:12,color:T.text,fontWeight:500}}>Este pagamento tem parceria com outro advogado</span>
               </label>
             </div>
             {/* campos de parceria — só aparece se checkbox marcado */}
@@ -440,7 +439,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
               </div>
             )}
           </div>
-          <div style={{display:"flex",gap:8}}><Btn T={T} variant="secondary" onClick={()=>{setShowForm(false);setEditId(null);}}>Cancelar</Btn><Btn T={T} onClick={saveForm}>💾 Salvar</Btn></div>
+          <div style={{display:"flex",gap:8}}><Btn T={T} variant="secondary" onClick={()=>{setShowForm(false);setEditId(null);}}>Cancelar</Btn><Btn T={T} onClick={saveForm}>Salvar</Btn></div>
         </div>
       )}
 
@@ -485,8 +484,8 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
                           {(isSch?c.telefone:e.telefone)&&<div style={{display:"flex",alignItems:"center",gap:4,marginRight:16,marginBottom:4}}><PhoneLink phone={isSch?c.telefone:e.telefone}/></div>}
                           {/* processo */}
                           {(isSch?c.numeroProcesso:e.numeroProcesso)&&<div style={{display:"flex",alignItems:"center",gap:4,marginRight:16,marginBottom:4}}>
-                            <span style={{fontSize:10,color:T.muted}}>📋</span>
-                            <span style={{fontSize:11,color:T.muted,fontFamily:"'DM Mono',monospace"}}>{isSch?c.numeroProcesso:e.numeroProcesso}</span>
+                            <ClipboardList size={12} color={T.muted}/>
+                            <span style={{fontSize:11,color:T.muted,fontFamily:"var(--font-ui)"}}>{isSch?c.numeroProcesso:e.numeroProcesso}</span>
                           </div>}
                           {/* descrição */}
                           {e.descricao&&<div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
@@ -504,8 +503,8 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
                           {e.pago?"✅ Recebido":"⏳ Aguardando"}
                         </div>
                         {!isSch&&<div style={{display:"flex",gap:4}}>
-                          <button className="bhov" onClick={()=>editE(e)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 8px",fontSize:12}}>✏</button>
-                          <button className="bhov" onClick={()=>delM(e.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 8px",fontSize:12}}>🗑</button>
+                          <button className="bhov" onClick={()=>editE(e)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 8px",fontSize:12}}><Pencil size={14}/></button>
+                          <button className="bhov" onClick={()=>delM(e.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 8px",fontSize:12}}><Trash2 size={14}/></button>
                         </div>}
                       </div>
                     </div>
@@ -632,12 +631,12 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
 
       {showForm&&(
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
-          <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"✏ Editar":"+ Novo Custo"}</div>
+          <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"Editar":"+ Novo Custo"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
             <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Descrição" value={form.descricao} onChange={v=>setForm(d=>({...d,descricao:v}))}/></div>
             <Fld T={T} label="Categoria" value={form.categoria} onChange={v=>setForm(d=>({...d,categoria:v}))} options={COST_CATS}/>
             <Fld T={T} label="Valor R$" value={form.valor} onChange={v=>setForm(d=>({...d,valor:v}))}/>
-            <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Mês</label><select value={form.mes} onChange={e=>setForm(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Mês</label><select value={form.mes} onChange={e=>setForm(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
             <Fld T={T} label="Ano" value={form.ano} onChange={v=>setForm(d=>({...d,ano:Number(v)}))} type="number"/>
             <Fld T={T} label="Data do Pagamento" value={form.dataPagamento||""} onChange={v=>setForm(d=>({...d,dataPagamento:v}))} ph="dd/mm/aaaa"/>
           </div>
@@ -645,7 +644,7 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
             <label style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}><input type="checkbox" checked={form.pago} onChange={e=>setForm(d=>({...d,pago:e.target.checked}))} style={{accentColor:T.accent}}/> Já pago</label>
             {!editId&&<label style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}><input type="checkbox" checked={form.recorrente} onChange={e=>setForm(d=>({...d,recorrente:e.target.checked}))} style={{accentColor:T.accent}}/> Recorrente (12 meses)</label>}
           </div>
-          <div style={{display:"flex",gap:8}}><Btn T={T} variant="secondary" onClick={()=>setShowForm(false)}>Cancelar</Btn><Btn T={T} onClick={save}>💾 Salvar</Btn></div>
+          <div style={{display:"flex",gap:8}}><Btn T={T} variant="secondary" onClick={()=>setShowForm(false)}>Cancelar</Btn><Btn T={T} onClick={save}>Salvar</Btn></div>
         </div>
       )}
 
@@ -664,8 +663,8 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
                   <td style={{padding:"9px 12px",color:T.muted,fontSize:11}}>{c.dataPagamento||`${MFS[c.mes-1]}/${c.ano}`}</td>
                   <td style={{padding:"9px 12px"}}><span style={{fontSize:11,color:c.pago?T.successText:T.dangerText,fontWeight:600}}>{c.pago?"✅ Pago":"🔴 Pendente"}</span></td>
                   <td style={{padding:"9px 12px"}}><div style={{display:"flex",gap:5}}>
-                    <button className="bhov" onClick={()=>{setForm({...c,valor:String(c.valor),dataPagamento:c.dataPagamento||new Date().toLocaleDateString("pt-BR")});setEditId(c.id);setShowForm(true);}} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}>✏</button>
-                    <button className="bhov" onClick={()=>delCost(c.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}>🗑</button>
+                    <button className="bhov" onClick={()=>{setForm({...c,valor:String(c.valor),dataPagamento:c.dataPagamento||new Date().toLocaleDateString("pt-BR")});setEditId(c.id);setShowForm(true);}} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}><Pencil size={14}/></button>
+                    <button className="bhov" onClick={()=>delCost(c.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}><Trash2 size={14}/></button>
                   </div></td>
                 </tr>
               ))}
@@ -724,12 +723,12 @@ function TabRelatorio({T,contracts,manual,costs}){
         responsive:true,maintainAspectRatio:false,
         interaction:{mode:"index",intersect:false},
         plugins:{
-          legend:{labels:{color:T.chartText,font:{family:"'DM Mono',monospace",size:12},boxWidth:12,padding:20}},
+          legend:{labels:{color:T.chartText,font:{family:"var(--font-ui)",size:12},boxWidth:12,padding:20}},
           tooltip:{backgroundColor:T.card,borderColor:T.border,borderWidth:1,titleColor:T.strong,bodyColor:T.muted,padding:12,callbacks:{label:ctx=>" "+ctx.dataset.label+": "+fmt(ctx.raw)}},
         },
         scales:{
-          x:{grid:{color:T.chartGrid},ticks:{color:T.chartText,font:{family:"'DM Mono',monospace",size:11}}},
-          y:{grid:{color:T.chartGrid},ticks:{color:T.chartText,font:{family:"'DM Mono',monospace",size:11},callback:v=>v>=1000?(v/1000).toFixed(0)+"k":v},beginAtZero:true},
+          x:{grid:{color:T.chartGrid},ticks:{color:T.chartText,font:{family:"var(--font-ui)",size:11}}},
+          y:{grid:{color:T.chartGrid},ticks:{color:T.chartText,font:{family:"var(--font-ui)",size:11},callback:v=>v>=1000?(v/1000).toFixed(0)+"k":v},beginAtZero:true},
         },
       },
     });
@@ -750,7 +749,7 @@ function TabRelatorio({T,contracts,manual,costs}){
       <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
         {MFS.map((m,i)=>(
           <button key={i} onClick={()=>togMes(i)} className="bhov"
-            style={{background:meses.includes(i)?T.accent:T.card2,color:meses.includes(i)?T.accentText:T.muted,border:`1px solid ${meses.includes(i)?T.accent:T.border}`,borderRadius:7,padding:"6px 12px",fontSize:12,fontFamily:"'DM Mono',monospace",fontWeight:meses.includes(i)?600:400,cursor:"pointer",transition:"all .15s"}}>
+            style={{background:meses.includes(i)?T.accent:T.card2,color:meses.includes(i)?T.accentText:T.muted,border:`1px solid ${meses.includes(i)?T.accent:T.border}`,borderRadius:7,padding:"6px 12px",fontSize:12,fontFamily:"var(--font-ui)",fontWeight:meses.includes(i)?600:400,cursor:"pointer",transition:"all .15s"}}>
             {m}
           </button>
         ))}
@@ -960,21 +959,21 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
         <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Clientes</span>
         <div style={{flex:1}}/>
-        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar..." style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,width:180}}/>
+        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar..." style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12,width:180}}/>
         {clientes.filter(c=>c.telefone).length>0&&(
           <Btn T={T} variant="ghost" onClick={()=>iniciarFila(clientes.filter(c=>c.telefone))} style={{borderColor:"#25d366",color:"#25d366"}}>
-            📋 Fila Semanal ({clientes.filter(c=>c.telefone).length})
+            Fila Semanal ({clientes.filter(c=>c.telefone).length})
           </Btn>
         )}
         {(()=>{const pend=clientes.filter(c=>c.telefone&&(!(contatos||{})[c.nome.trim().toLowerCase()]||Date.now()-new Date(contatos[c.nome.trim().toLowerCase()]).getTime()>15*864e5));
-          return pend.length>0&&<Btn T={T} variant="ghost" onClick={()=>iniciarFila(pend)} style={{borderColor:"#dc2626",color:"#dc2626"}}>⏰ Atrasados ({pend.length})</Btn>;})()}
+          return pend.length>0&&<Btn T={T} variant="ghost" onClick={()=>iniciarFila(pend)} style={{borderColor:"#dc2626",color:"#dc2626"}}><Clock3 size={14}/> Atrasados ({pend.length})</Btn>;})()}
         <Btn T={T} onClick={openNew}>+ Novo Cliente</Btn>
       </div>
 
       {/* form cadastro/edição */}
       {showForm&&(
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
-          <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"✏ Editar Cliente":"+ Novo Cliente"}</div>
+          <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>{editId?"Editar Cliente":"+ Novo Cliente"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
             <Fld T={T} label="Nome completo *" value={formCl.nome} onChange={v=>setFormCl(d=>({...d,nome:v}))}/>
             <Fld T={T} label="CPF" value={formCl.cpf} onChange={v=>setFormCl(d=>({...d,cpf:fmtCPF(v)}))} ph="000.000.000-00"/>
@@ -986,17 +985,17 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
           </div>
           <div style={{display:"flex",gap:8}}>
             <Btn T={T} variant="secondary" onClick={()=>setShowForm(false)}>Cancelar</Btn>
-            <Btn T={T} onClick={saveForm}>💾 Salvar</Btn>
+            <Btn T={T} onClick={saveForm}>Salvar</Btn>
           </div>
         </div>
       )}
 
       {/* stats */}
       <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
-        {[["👥","Clientes",totalClientes,T.accent],["💼","Carteira",null,T.accent,fmt(totalCarteira)],["✅","Recebido",null,T.successText,fmt(totalRecebido)],["⏳","A Receber",null,T.warnText,fmt(totalCarteira-totalRecebido)]].map(([ic,lb,vn,cor,vs])=>(
+        {[[UsersI,"Clientes",totalClientes,T.accent],[Briefcase,"Carteira",null,T.accent,fmt(totalCarteira)],[CheckCircle2,"Recebido",null,T.successText,fmt(totalRecebido)],[Hourglass,"A Receber",null,T.warnText,fmt(totalCarteira-totalRecebido)]].map(([Ic,lb,vn,cor,vs])=>(
           <div key={lb} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 16px",flex:"1 1 110px",textAlign:"center"}}>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:cor}}>{vs||vn}</div>
-            <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:3}}>{ic} {lb}</div>
+            <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginTop:3,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}><Ic size={12}/>{lb}</div>
           </div>
         ))}
       </div>
@@ -1016,12 +1015,12 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                     <td style={{padding:"10px 13px"}}>
                       <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,color:T.strong}}>{cl.nome}</div>
                       {(()=>{const u=(contatos||{})[cl.nome.trim().toLowerCase()];const d=u?Math.floor((Date.now()-new Date(u).getTime())/864e5):null;
-                        return d===null?<div style={{fontSize:10,color:T.warnText,marginTop:1}}>⏰ sem atualização enviada</div>
-                          :d>15?<div style={{fontSize:10,color:T.dangerText,marginTop:1}}>⏰ última atualização há {d} dias</div>
+                        return d===null?<div style={{fontSize:10,color:T.warnText,marginTop:1}}><Clock3 size={10} style={{verticalAlign:"-1px"}}/> sem atualização enviada</div>
+                          :d>15?<div style={{fontSize:10,color:T.dangerText,marginTop:1}}><Clock3 size={10} style={{verticalAlign:"-1px"}}/> última atualização há {d} dias</div>
                           :<div style={{fontSize:10,color:T.muted,marginTop:1}}>✓ atualizado há {d} dia{d===1?"":"s"}</div>;})()}
                       {cl.email&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>✉ {cl.email}</div>}
                     </td>
-                    <td style={{padding:"10px 13px",color:T.muted,fontSize:11,fontFamily:"'DM Mono',monospace"}}>{cl.cpf||"—"}</td>
+                    <td style={{padding:"10px 13px",color:T.muted,fontSize:11,fontFamily:"var(--font-ui)"}}>{cl.cpf||"—"}</td>
                     <td style={{padding:"10px 13px",fontSize:11}}>
                       {cl.telefone?<PhoneLink phone={cl.telefone}/>:<span style={{color:T.muted}}>—</span>}
                     </td>
@@ -1037,10 +1036,10 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                     <td style={{padding:"10px 13px",fontSize:11,color:T.muted,textAlign:"center"}}>{cl.processos.length}</td>
                     <td style={{padding:"10px 13px"}}>
                       <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                        <button className="bhov" onClick={()=>setModalCliente(cl)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}} title="Ver detalhes">🔍</button>
-                        <button className="bhov" onClick={()=>abrirAtualizar(cl)} style={{background:"#22c55e22",border:"1px solid #22c55e44",borderRadius:5,padding:"5px 9px",fontSize:13,color:"#16a34a",fontWeight:700}} title="Enviar atualização WhatsApp">📲</button>
-                        <button className="bhov" onClick={()=>openEdit(cl)} style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:5,padding:"5px 9px",fontSize:13}} title="Editar">✏</button>
-                        <button className="bhov" onClick={()=>delCliente(cl)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}} title="Excluir">🗑</button>
+                        <button className="bhov" onClick={()=>setModalCliente(cl)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}} title="Ver detalhes"><Search size={14}/></button>
+                        <button className="bhov" onClick={()=>abrirAtualizar(cl)} style={{background:"#22c55e22",border:"1px solid #22c55e44",borderRadius:5,padding:"5px 9px",fontSize:13,color:"#16a34a",fontWeight:700}} title="Enviar atualização WhatsApp"><MessageCircle size={14}/></button>
+                        <button className="bhov" onClick={()=>openEdit(cl)} style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:5,padding:"5px 9px",fontSize:13}} title="Editar"><Pencil size={14}/></button>
+                        <button className="bhov" onClick={()=>delCliente(cl)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}} title="Excluir"><Trash2 size={14}/></button>
                       </div>
                     </td>
                   </tr>
@@ -1084,8 +1083,8 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
             )}
             {modalCliente.observacoes&&<div style={{marginTop:12,background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`}}><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:3}}>Observações</div><div style={{color:T.text,fontSize:12,whiteSpace:"pre-wrap"}}>{modalCliente.observacoes}</div></div>}
             <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"center"}}>
-              <button onClick={()=>{setModalCliente(null);abrirAtualizar(modalCliente);}} style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:9,padding:"10px 24px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Mono',monospace",display:"flex",alignItems:"center",gap:8}}>
-                📲 Enviar Atualização pelo WhatsApp
+              <button onClick={()=>{setModalCliente(null);abrirAtualizar(modalCliente);}} style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:9,padding:"10px 24px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-ui)",display:"flex",alignItems:"center",gap:8}}>
+                Enviar Atualização pelo WhatsApp
               </button>
             </div>
           </div>
@@ -1101,7 +1100,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
             <div style={{padding:"18px 24px 14px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
               <div>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,color:T.accent,fontWeight:700}}>
-                  📲 Atualização — {modalAtualizar.nome}
+                  Atualização — {modalAtualizar.nome}
                 </div>
                 {modoFila&&<div style={{fontSize:11,color:T.warnText,fontWeight:600,marginTop:3}}>Fila: {filaIdx+1} de {fila.length} clientes</div>}
               </div>
@@ -1122,7 +1121,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                   {(modalAtualizar.processos||[]).map((p,i)=>{const st=STATUS_CFG[p.status]||STATUS_CFG.pendente;return(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,fontSize:12}}>
                       <span style={{color:st.color,fontWeight:600}}>{st.icon}</span>
-                      <span style={{color:T.muted,fontFamily:"'DM Mono',monospace",fontSize:11}}>{p.numeroProcesso||"Sem nº"}</span>
+                      <span style={{color:T.muted,fontFamily:"var(--font-ui)",fontSize:11}}>{p.numeroProcesso||"Sem nº"}</span>
                       <ABadge area={p.area}/>
                       <span style={{marginLeft:"auto",color:T.accent,fontWeight:600}}>{fmt(p.valorTotal)}</span>
                     </div>
@@ -1133,10 +1132,10 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
               {/* botão gerar IA */}
               <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center"}}>
                 <button onClick={()=>gerarComIA(modalAtualizar)} disabled={gerandoIA}
-                  style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:12,fontWeight:600,cursor:gerandoIA?"wait":"pointer",fontFamily:"'DM Mono',monospace",display:"flex",alignItems:"center",gap:7,opacity:gerandoIA?.6:1}}>
+                  style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:12,fontWeight:600,cursor:gerandoIA?"wait":"pointer",fontFamily:"var(--font-ui)",display:"flex",alignItems:"center",gap:7,opacity:gerandoIA?.6:1}}>
                   {gerandoIA?<><span className="spin" style={{display:"inline-block",width:12,height:12,border:"2px solid #ffffff44",borderTopColor:"#fff",borderRadius:"50%"}}/>Gerando...</>:<>🤖 Gerar com IA</>}
                 </button>
-                <button onClick={()=>setMsgAtualizar(msgPadrao(modalAtualizar))} style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 12px",fontSize:11,cursor:"pointer",color:T.muted,fontFamily:"'DM Mono',monospace"}}>
+                <button onClick={()=>setMsgAtualizar(msgPadrao(modalAtualizar))} style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 12px",fontSize:11,cursor:"pointer",color:T.muted,fontFamily:"var(--font-ui)"}}>
                   ↺ Modelo padrão
                 </button>
                 {erroIA&&<span style={{fontSize:11,color:T.dangerText}}>⚠ {erroIA}</span>}
@@ -1148,19 +1147,19 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                 value={msgAtualizar}
                 onChange={e=>setMsgAtualizar(e.target.value)}
                 rows={10}
-                style={{width:"100%",background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"12px 14px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12,resize:"vertical",lineHeight:1.6}}
+                style={{width:"100%",background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"12px 14px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12,resize:"vertical",lineHeight:1.6}}
               />
               <div style={{fontSize:10,color:T.muted,marginTop:4,textAlign:"right"}}>{msgAtualizar.length} caracteres</div>
             </div>
 
             {/* footer ações */}
             <div style={{padding:"14px 24px",borderTop:`1px solid ${T.border}`,display:"flex",gap:10,alignItems:"center"}}>
-              {!modoFila&&<button onClick={()=>setModalAtualizar(null)} style={{background:T.border,color:T.text,border:"none",borderRadius:7,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:"'DM Mono',monospace"}}>Cancelar</button>}
+              {!modoFila&&<button onClick={()=>setModalAtualizar(null)} style={{background:T.border,color:T.text,border:"none",borderRadius:7,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:"var(--font-ui)"}}>Cancelar</button>}
               <div style={{flex:1}}/>
               <button
                 onClick={()=>{enviarWhatsApp(modalAtualizar,msgAtualizar);if(modoFila){setTimeout(()=>proximoFila(),600);}else{setModalAtualizar(null);}}}
                 disabled={!msgAtualizar.trim()}
-                style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:9,padding:"10px 22px",fontSize:13,fontWeight:700,cursor:!msgAtualizar.trim()?"not-allowed":"pointer",fontFamily:"'DM Mono',monospace",display:"flex",alignItems:"center",gap:8,opacity:!msgAtualizar.trim()?.5:1}}>
+                style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:9,padding:"10px 22px",fontSize:13,fontWeight:700,cursor:!msgAtualizar.trim()?"not-allowed":"pointer",fontFamily:"var(--font-ui)",display:"flex",alignItems:"center",gap:8,opacity:!msgAtualizar.trim()?.5:1}}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                 {modoFila?`Enviar e ir para ${filaIdx+1<fila.length?fila[filaIdx+1].nome:"Concluir"}`:"Abrir WhatsApp"}
               </button>
@@ -1252,11 +1251,11 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,setContracts
 
   const BtnCard=({icon,title,desc,onClick,variant="primary",upload=false})=>(
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"20px 22px",display:"flex",flexDirection:"column",gap:8}}>
-      <div style={{fontSize:28}}>{icon}</div>
+      <div style={{color:T.accent,display:"flex"}}>{icon}</div>
       <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,color:T.strong,fontWeight:600}}>{title}</div>
       <div style={{fontSize:11,color:T.muted,flex:1}}>{desc}</div>
       {upload
-        ?<label style={{background:T.accent,color:T.accentText,border:"none",borderRadius:7,padding:"8px 16px",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:600,textAlign:"center",display:"block"}}>
+        ?<label style={{background:T.accent,color:T.accentText,border:"none",borderRadius:7,padding:"8px 16px",cursor:"pointer",fontFamily:"var(--font-ui)",fontSize:12,fontWeight:600,textAlign:"center",display:"block"}}>
           Escolher arquivo<input type="file" accept=".json" style={{display:"none"}} onChange={importBackup}/>
         </label>
         :<Btn T={T} variant={variant} onClick={onClick} style={{alignSelf:"flex-start"}}>{title}</Btn>}
@@ -1270,8 +1269,8 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,setContracts
 
       <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>Backup dos Dados</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
-        <BtnCard icon="💾" title="Exportar Backup" desc="Salva todos os dados (contratos, custos, pagamentos) em um arquivo JSON." onClick={exportBackup}/>
-        <BtnCard icon="📂" title="Importar Backup" desc="Restaura dados de um arquivo JSON exportado anteriormente. Substitui tudo." upload={true}/>
+        <BtnCard icon={<Save size={26} strokeWidth={1.6}/>} title="Exportar Backup" desc="Salva todos os dados (contratos, custos, pagamentos) em um arquivo JSON." onClick={exportBackup}/>
+        <BtnCard icon={<FolderOpen size={26} strokeWidth={1.6}/>} title="Importar Backup" desc="Restaura dados de um arquivo JSON exportado anteriormente. Substitui tudo." upload={true}/>
       </div>
 
       <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>Backups automáticos (semanais, guardados na nuvem)</div>
@@ -1280,25 +1279,25 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,setContracts
           :backups.length===0?<div style={{color:T.muted,fontSize:12}}>Nenhum backup ainda. O primeiro é criado automaticamente ao abrir o sistema com dados cadastrados.</div>
           :backups.map(b=>(
             <div key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:`1px solid ${T.border}`,fontSize:12}}>
-              <span style={{flex:1,color:T.strong}}>📅 {b.id.slice(7).split("-").reverse().join("/")}</span>
+              <span style={{flex:1,color:T.strong}}><Calendar size={13} style={{verticalAlign:"-2px"}}/> {b.id.slice(7).split("-").reverse().join("/")}</span>
               <span style={{color:T.muted}}>{(b.data.contracts||[]).length} contratos · {(b.data.manual||[]).length} pagamentos</span>
-              <Btn T={T} variant="ghost" onClick={()=>baixar(b)}>⬇ Baixar</Btn>
-              <Btn T={T} variant="secondary" onClick={()=>restaurar(b)}>↩ Restaurar</Btn>
+              <Btn T={T} variant="ghost" onClick={()=>baixar(b)}><DownloadI size={13}/> Baixar</Btn>
+              <Btn T={T} variant="secondary" onClick={()=>restaurar(b)}><Undo2 size={13}/> Restaurar</Btn>
             </div>))}
         <div style={{fontSize:10,color:T.muted,marginTop:10}}>Mantém os 8 mais recentes. Para guardar no Google Drive, use “Exportar Backup” e salve o arquivo na pasta do Drive.</div>
       </div>
 
       <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>Chave da IA (Anthropic)</div>
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 18px",marginBottom:24,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <input type="password" value={chave} onChange={e=>setChave(e.target.value)} placeholder="sk-ant-..." style={{flex:1,minWidth:220,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 12px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:12}}/>
+        <input type="password" value={chave} onChange={e=>setChave(e.target.value)} placeholder="sk-ant-..." style={{flex:1,minWidth:220,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 12px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
         <Btn T={T} onClick={()=>{setAntKey(chave.trim());notify("✅ Chave salva neste aparelho.");}}>Salvar</Btn>
         <div style={{fontSize:10,color:T.muted,flexBasis:"100%"}}>Fica guardada só neste navegador/aparelho (não vai para o GitHub nem para o Firebase). Configure uma vez em cada dispositivo.</div>
       </div>
 
       <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>Exportar Relatórios (CSV)</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
-        <BtnCard icon="👥" title="Lista de Clientes" desc="Exporta nome, telefone, área, número de processos e valor total por cliente." onClick={exportClientesCSV} variant="ghost"/>
-        <BtnCard icon="💰" title="Pagamentos" desc="Exporta todos os pagamentos (cronogramas + manuais) com status e valores." onClick={exportPagamentosCSV} variant="ghost"/>
+        <BtnCard icon={<UsersI size={26} strokeWidth={1.6}/>} title="Lista de Clientes" desc="Exporta nome, telefone, área, número de processos e valor total por cliente." onClick={exportClientesCSV} variant="ghost"/>
+        <BtnCard icon={<Banknote size={26} strokeWidth={1.6}/>} title="Pagamentos" desc="Exporta todos os pagamentos (cronogramas + manuais) com status e valores." onClick={exportPagamentosCSV} variant="ghost"/>
       </div>
 
       <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>Resumo dos Dados</div>
@@ -1385,7 +1384,7 @@ function Clock({T}){
     <div style={{lineHeight:1.3}}>
       <div style={{fontSize:10,color:T.muted}}>{dd}/{mm}/{aaaa}</div>
       <div style={{fontSize:9,color:T.muted}}>{DIAS_SEMANA[now.getDay()]}</div>
-      <div style={{fontSize:11,color:T.accent,fontWeight:600,fontFamily:"'DM Mono',monospace"}}>{hh}:{min}:{ss}</div>
+      <div style={{fontSize:11,color:T.accent,fontWeight:600,fontFamily:"var(--font-ui)"}}>{hh}:{min}:{ss}</div>
     </div>
   );
 }
@@ -1493,11 +1492,12 @@ function App(){
   },[fbLoaded]);
 
   /* ── 5. Indicador visual (prompt §6) ──────────────── */
-  const cloudMsg = !fbLoaded ? "☁️ conectando..."
-                 : fbError   ? "⚠️ offline"
-                 : fbSaving  ? "☁️ salvando..."
-                 : syncedAt  ? `☁️ Sincronizado às ${syncedAt.toLocaleTimeString("pt-BR")}`
-                 :             "☁️ sincronizado";
+  const cloudMsg = !fbLoaded ? "Conectando..."
+                 : fbError   ? "Offline — alterações podem não estar sendo salvas"
+                 : fbSaving  ? "Salvando..."
+                 : syncedAt  ? `Sincronizado às ${syncedAt.toLocaleTimeString("pt-BR")}`
+                 :             "Sincronizado";
+  const CloudIcon = fbError ? CloudOff : (fbSaving||!fbLoaded) ? CloudUpload : Cloud;
   const cloudColor = fbError   ? "#f87171"
                    : fbSaving  ? "#fbbf24"
                    : fbLoaded  ? "#22c55e"
@@ -1515,19 +1515,21 @@ function App(){
   const syncPulse = !fbLoaded || fbSaving;
 
   const TABS_MAIN=[
-    {id:"contratos",label:"📄 Contratos"},
-    {id:"pagamentos",label:"💰 Pagamentos"},
-    {id:"custos",label:"🏢 Custos"},
-    {id:"clientes",label:"👥 Clientes"},
-    {id:"relatorio",label:"📊 Relatório"},
+    {id:"contratos",label:"Contratos",icon:FileText},
+    {id:"pagamentos",label:"Pagamentos",icon:Wallet},
+    {id:"custos",label:"Custos",icon:Building2},
+    {id:"clientes",label:"Clientes",icon:Users},
+    {id:"relatorio",label:"Relatório",icon:BarChart3},
   ];
   const TABS_SEC=[
-    {id:"configuracoes",label:"⚙️ Config."},
-    {id:"links",label:"🔗 Links Úteis"},
+    {id:"configuracoes",label:"Config.",icon:Settings},
+    {id:"links",label:"Links Úteis",icon:Link2},
   ];
 
   return(
-    <div style={{background:T.bg,minHeight:"100vh",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:13}}>
+    <div className="app-root" style={{background:T.bg,minHeight:"100vh",color:T.text,fontFamily:"var(--font-ui)",fontSize:14,
+      "--accent":T.accent,"--accent-text":T.accentText,"--card":T.card,"--card2":T.card2,"--border":T.border,"--border2":T.border2,"--text":T.text,"--muted":T.muted,"--inp":T.inp,
+      "--danger-bg":T.dangerBg,"--danger-text":T.dangerText,"--danger-border":T.dangerBorder}}>
       <style>{`.row-hover:hover{background:${T.hover}!important;}
       .tab-nav:hover:not([style*="${T.tabActive}"]){background:${T.border}!important;color:${T.strong}!important;}
       .nav-arrow{transition:background .15s,color .15s,transform .1s;}
@@ -1535,9 +1537,9 @@ function App(){
 
       {/* ── BARRA SYNC ── */}
       <div style={{background:syncBg,borderBottom:`1px solid ${syncBorder}`,padding:"5px 20px",display:"flex",alignItems:"center",gap:8,minHeight:28,position:"sticky",top:0,zIndex:101}}>
-        <span className={`sync-dot${syncPulse?" pulsing":""}`} style={{background:cloudColor}}/>
+        <CloudIcon size={14} color={cloudColor} className={syncPulse?"pulsing":""}/>
         <span style={{fontSize:11,color:cloudColor,fontWeight:500,flex:1}}>{cloudMsg}</span>
-        <button onClick={()=>auth.signOut()} style={{background:"none",border:"1px solid #ffffff44",borderRadius:5,padding:"2px 10px",fontSize:10,color:"#e5e5e5",cursor:"pointer",fontFamily:"'DM Mono',monospace"}}>Sair ⎋</button>
+        <button onClick={()=>auth.signOut()} style={{background:"none",border:"1px solid #ffffff44",borderRadius:5,padding:"2px 10px",fontSize:10,color:"#e5e5e5",cursor:"pointer",fontFamily:"var(--font-ui)"}}><LogOut size={12}/> Sair</button>
         {fbError&&<button onClick={()=>setFbError(null)} style={{background:"none",border:`1px solid #ef444466`,borderRadius:5,padding:"2px 8px",fontSize:10,color:"#f87171",cursor:"pointer"}}>✕</button>}
       </div>
 
@@ -1555,7 +1557,7 @@ function App(){
           <div style={{flex:1}}/>
           <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
             {Object.values(THEMES).map(th=><button key={th.id} onClick={()=>setThemeId(th.id)} className="bhov"
-              style={{background:themeId===th.id?T.accent:T.card2,color:themeId===th.id?T.accentText:T.muted,border:`1px solid ${T.border}`,borderRadius:7,padding:"5px 10px",fontSize:11,fontFamily:"'DM Mono',monospace",whiteSpace:"nowrap"}}>
+              style={{background:themeId===th.id?T.accent:T.card2,color:themeId===th.id?T.accentText:T.muted,border:`1px solid ${T.border}`,borderRadius:7,padding:"5px 10px",fontSize:11,fontFamily:"var(--font-ui)",whiteSpace:"nowrap"}}>
               {th.label}
             </button>)}
           </div>
@@ -1564,25 +1566,25 @@ function App(){
         <div style={{borderTop:`1px solid ${T.border}`,padding:"6px 22px",display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
           {/* tabs principais */}
           <div style={{display:"flex",gap:3,background:T.card2,borderRadius:10,padding:3,border:`1px solid ${T.border}`}}>
-            {TABS_MAIN.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="bhov tab-nav"
-              style={{background:tab===t.id?T.tabActive:"transparent",color:tab===t.id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"8px 14px",cursor:"pointer",fontSize:12,fontFamily:"'DM Mono',monospace",fontWeight:tab===t.id?600:400,transition:"all .18s",whiteSpace:"nowrap"}}>
-              {t.label}
+            {TABS_MAIN.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="bhov tab-nav tab-btn"
+              style={{background:tab===t.id?T.tabActive:"transparent",color:tab===t.id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"8px 14px",cursor:"pointer",fontSize:12,fontFamily:"var(--font-ui)",fontWeight:tab===t.id?600:400,transition:"all .18s",whiteSpace:"nowrap"}}>
+              {t.icon&&<t.icon size={15} strokeWidth={1.9}/>}{t.label}
             </button>)}
           </div>
           {/* divisor visual */}
           <div style={{display:"flex",alignItems:"center",color:T.border2,fontSize:18,userSelect:"none"}}>│</div>
           {/* tabs secundárias — usadas com menos frequência */}
           <div style={{display:"flex",gap:3,background:T.card2,borderRadius:10,padding:3,border:`1px solid ${T.border}`,opacity:.85}}>
-            {TABS_SEC.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="bhov tab-nav"
-              style={{background:tab===t.id?T.tabActive:"transparent",color:tab===t.id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"8px 12px",cursor:"pointer",fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:tab===t.id?600:400,transition:"all .18s",whiteSpace:"nowrap"}}>
-              {t.label}
+            {TABS_SEC.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="bhov tab-nav tab-btn"
+              style={{background:tab===t.id?T.tabActive:"transparent",color:tab===t.id?T.tabActiveText:T.muted,border:"none",borderRadius:7,padding:"8px 12px",cursor:"pointer",fontSize:11,fontFamily:"var(--font-ui)",fontWeight:tab===t.id?600:400,transition:"all .18s",whiteSpace:"nowrap"}}>
+              {t.icon&&<t.icon size={15} strokeWidth={1.9}/>}{t.label}
             </button>)}
           </div>
         </div>
       </div>
 
       {/* ── CONTEÚDO ── */}
-      <div style={{padding:"20px 22px",maxWidth:1200,margin:"0 auto"}}>
+      <div key={tab} className="page-enter" style={{padding:"24px 28px",maxWidth:1360,margin:"0 auto"}}>
         {!fbLoaded
           ?<div style={{textAlign:"center",padding:"80px 0",color:T.muted,display:"flex",flexDirection:"column",alignItems:"center",gap:14}}>
             <div className="spin" style={{width:32,height:32,border:`3px solid ${T.border2}`,borderTopColor:T.accent,borderRadius:"50%"}}/>
@@ -1625,9 +1627,9 @@ function Login(){
       setLoading(false);
     }
   }
-  const inp={width:"100%",background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"11px 14px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:14,marginBottom:12};
+  const inp={width:"100%",background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"11px 14px",color:T.text,fontFamily:"var(--font-ui)",fontSize:14,marginBottom:12};
   return(
-    <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"'DM Mono',monospace"}}>
+    <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"var(--font-ui)"}}>
       <form onSubmit={entrar} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:"30px 28px",width:"100%",maxWidth:360,boxShadow:"0 20px 60px #0004"}}>
         <div style={{textAlign:"center",marginBottom:20}}>
           <img src={LOGO_SRC} alt="Juliana Savi Advogada" style={{height:80,objectFit:"contain"}}/>
@@ -1637,7 +1639,7 @@ function Login(){
         <input value={user} onChange={e=>setUser(e.target.value)} placeholder="Usuário" autoCapitalize="characters" autoComplete="username" style={inp}/>
         <input type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Senha" autoComplete="current-password" style={inp}/>
         {erro&&<div style={{background:T.dangerBg,color:T.dangerText,border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:12}}>{erro}</div>}
-        <button type="submit" disabled={loading||!user||!senha} style={{width:"100%",background:T.accent,color:T.accentText,border:"none",borderRadius:8,padding:"12px",fontSize:14,fontWeight:700,fontFamily:"'DM Mono',monospace",cursor:"pointer",opacity:loading||!user||!senha?.6:1}}>{loading?"Entrando...":"Entrar"}</button>
+        <button type="submit" disabled={loading||!user||!senha} style={{width:"100%",background:T.accent,color:T.accentText,border:"none",borderRadius:8,padding:"12px",fontSize:14,fontWeight:700,fontFamily:"var(--font-ui)",cursor:"pointer",opacity:loading||!user||!senha?.6:1}}>{loading?"Entrando...":"Entrar"}</button>
       </form>
     </div>
   );
