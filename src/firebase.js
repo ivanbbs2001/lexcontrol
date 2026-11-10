@@ -1,53 +1,18 @@
-import { initializeApp } from "firebase/app";
-import {
-  getFirestore,
-  doc,
-  onSnapshot,
-  setDoc,
-} from "firebase/firestore";
+import firebase from "firebase/compat/app";
+import "firebase/compat/firestore";
 
-const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
+// Config pública do Firebase (a proteção real vem das regras do Firestore, não do sigilo desta chave)
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDbTPc2dJ-4nZHL5nVwZFyfxBsA92s1Tzw",
+  authDomain: "escritorioju2.firebaseapp.com",
+  projectId: "escritorioju2",
+  storageBucket: "escritorioju2.firebasestorage.app",
+  messagingSenderId: "29136072854",
+  appId: "1:29136072854:web:86a1d93e2373c79e2952b7",
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+// Mesmo valor em todos os dispositivos = dados compartilhados
+export const WS = "meu-escritorio";
 
-// Workspace ID — one firm = one workspace, all devices share data
-export const WORKSPACE_ID = import.meta.env.VITE_WORKSPACE_ID || "default";
-
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-/** Reference to a data document inside the workspace */
-export const workspaceDoc = (name) =>
-  doc(db, "workspaces", WORKSPACE_ID, "data", name);
-
-/** Save an array to Firestore (overwrites) */
-export async function saveList(name, items) {
-  await setDoc(workspaceDoc(name), { items }, { merge: false });
-}
-
-/** Save a single value to Firestore */
-export async function saveSetting(name, value) {
-  await setDoc(workspaceDoc(name), { value }, { merge: false });
-}
-
-/** Subscribe to a list document; calls onChange(items[]) on every update */
-export function subscribeList(name, onChange) {
-  return onSnapshot(workspaceDoc(name), (snap) => {
-    if (snap.exists()) onChange(snap.data().items ?? []);
-    else onChange([]);
-  });
-}
-
-/** Subscribe to a setting document; calls onChange(value) on every update */
-export function subscribeSetting(name, onChange) {
-  return onSnapshot(workspaceDoc(name), (snap) => {
-    if (snap.exists()) onChange(snap.data().value);
-  });
-}
+if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+export const db = firebase.firestore();
