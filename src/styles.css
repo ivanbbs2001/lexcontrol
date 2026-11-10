@@ -57,3 +57,10 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .row-hover{transition:background var(--t-fast);}
 .row-hover:hover{cursor:default;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+/* Links úteis */
+.link-card{position:relative;transition:transform var(--t-fast) var(--ease),box-shadow var(--t-fast),border-color var(--t-fast),background var(--t-fast);}
+.link-card:hover{transform:translateY(-3px);border-color:var(--accent)!important;box-shadow:var(--shadow-md);background:var(--card2)!important;}
+.link-card:active{transform:translateY(-1px);}
+.link-arrow{opacity:.55;transition:transform var(--t-fast) var(--ease),opacity var(--t-fast);}
+.link-card:hover .link-arrow{opacity:1;transform:translate(2px,-2px);}

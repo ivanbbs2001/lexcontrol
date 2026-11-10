@@ -4,7 +4,7 @@ import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
 import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
-import {Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
+import {ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
 
@@ -1353,9 +1353,9 @@ function TabLinks({T}){
           <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>{grupo.cat}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:8}}>
             {grupo.items.map(link=>(
-              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer"
-                style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 16px",textDecoration:"none",display:"flex",flexDirection:"column",gap:4,transition:"border .15s"}}>
-                <div style={{fontSize:13,color:T.accent,fontWeight:600}}>{link.label} ↗</div>
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="link-card"
+                style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 16px",textDecoration:"none",display:"flex",flexDirection:"column",gap:4}}>
+                <div style={{fontSize:13,color:T.accent,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>{link.label}<ExternalLink size={14} className="link-arrow"/></div>
                 <div style={{fontSize:11,color:T.muted}}>{link.desc}</div>
               </a>
             ))}
