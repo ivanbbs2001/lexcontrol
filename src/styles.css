@@ -107,3 +107,20 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .bn-item{position:relative;}
 .nav-badge.bn{position:absolute;top:0;right:calc(50% - 20px);margin:0;min-width:16px;height:16px;font-size:10px;}
 @media (max-width:900px){.cal-pop{position:fixed;left:12px;right:12px;top:58px;width:auto;}}
+
+/* ── Busca, ficha, esqueleto, impressão ── */
+.cliente-link{cursor:pointer;transition:color var(--t-fast);}
+.cliente-link:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
+.kbd{font:600 10px var(--font-ui);padding:2px 6px;border:1px solid var(--border2);border-radius:5px;color:var(--muted);background:var(--card2);}
+.skeleton{border-radius:12px;background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);background-size:200% 100%;animation:shimmer 1.3s linear infinite;border:1px solid var(--border);}
+@keyframes shimmer{from{background-position:200% 0;}to{background-position:-200% 0;}}
+.nav-item[draggable=true]{cursor:grab;}
+@media (max-width:900px){.search-label,.search-btn .kbd{display:none;}}
+@media print{
+  .sidebar,.topbar,.bottomnav,.overlay{display:none!important;}
+  .shell{display:block;}
+  body,.app-root{background:#fff!important;color:#000!important;}
+  .content{padding:0!important;max-width:none!important;animation:none!important;}
+  .card-lift,.pop{box-shadow:none!important;transform:none!important;}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}

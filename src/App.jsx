@@ -4,7 +4,7 @@ import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
 import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
-import {Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
+import {Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
 
@@ -278,7 +278,7 @@ function TabContratos({T,contracts,setContracts}){
               {contracts.map((c,i)=>{const st=STATUS_CFG[c.status]||STATUS_CFG.pendente;return(
                 <tr key={c.id} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
                   <td style={{padding:"10px 12px"}}><ABadge area={c.areaAtuacao}/></td>
-                  <td style={{padding:"10px 12px"}}><div style={{fontWeight:500,color:T.strong,fontSize:13}}>{c.cliente||"—"}</div>{c.telefone&&<div style={{marginTop:2}}><PhoneLink phone={c.telefone}/></div>}</td>
+                  <td style={{padding:"10px 12px"}}><div style={{fontWeight:500,color:T.strong,fontSize:13}}><ClienteLink nome={c.cliente}/></div>{c.telefone&&<div style={{marginTop:2}}><PhoneLink phone={c.telefone}/></div>}</td>
                   <td style={{padding:"10px 12px",color:T.infoText,fontSize:12}}>{c.advogado||"—"}</td>
                   <td style={{padding:"10px 12px",fontSize:11,color:T.muted,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={c.numeroProcesso}>{c.numeroProcesso||"—"}</td>
                   <td style={{padding:"10px 12px",color:T.accent,fontWeight:700}}>{fmt(c.valorTotal)}</td>
@@ -348,7 +348,6 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
     <div>
       {/* header */}
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Pagamentos</span>
         <div style={{display:"flex",alignItems:"center",gap:4,background:T.card,border:`1px solid ${T.border2}`,borderRadius:10,padding:"4px 8px"}}>
           <button className="bhov nav-arrow" onClick={()=>{let m=mes-1,a=ano;if(m<1){m=12;a--;}setMes(m);setAno(a);}} style={{background:T.card2,border:"none",fontSize:20,cursor:"pointer",color:T.accent,padding:"2px 8px",lineHeight:1,borderRadius:6,fontWeight:700}}>‹</button>
           <select value={mes} onChange={e=>setMes(Number(e.target.value))} style={{background:"transparent",border:"none",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer",outline:"none"}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
@@ -469,7 +468,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
                       <div style={{flex:1,minWidth:0}}>
                         {/* nome + badges */}
                         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:6}}>
-                          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.strong,fontWeight:700,lineHeight:1}}>{isSch?c.cliente:e.cliente}</span>
+                          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.strong,fontWeight:700,lineHeight:1}}><ClienteLink nome={isSch?c.cliente:e.cliente}/></span>
                           <ABadge area={area}/>
                           {!isSch&&<span style={{fontSize:10,background:T.warnBg,color:T.warnText,borderRadius:4,padding:"2px 7px",fontWeight:600}}>Manual</span>}
                         </div>
@@ -584,7 +583,6 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
   return(
     <div>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Custos</span>
         <div style={{display:"flex",alignItems:"center",gap:4,background:T.card,border:`1px solid ${T.border2}`,borderRadius:10,padding:"4px 8px"}}>
           <button className="bhov nav-arrow" onClick={()=>{let m=mes-1,a=ano;if(m<1){m=12;a--;}setMes(m);setAno(a);}} style={{background:T.card2,border:"none",fontSize:20,cursor:"pointer",color:T.accent,padding:"2px 8px",lineHeight:1,borderRadius:6,fontWeight:700}}>‹</button>
           <select value={mes} onChange={e=>setMes(Number(e.target.value))} style={{background:"transparent",border:"none",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer",outline:"none"}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
@@ -738,9 +736,9 @@ function TabRelatorio({T,contracts,manual,costs}){
   return(
     <div>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Relatório —</span>
         <select value={anoSel} onChange={e=>setAnoSel(Number(e.target.value))} style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,padding:"7px 13px",color:T.strong,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,cursor:"pointer"}}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select>
         <div style={{flex:1}}/>
+        <Btn T={T} variant="ghost" onClick={()=>window.print()} style={{padding:"5px 10px"}}><Printer size={14}/> Imprimir</Btn>
         <Btn T={T} variant="ghost" onClick={selAll} style={{padding:"5px 10px"}}>Todos</Btn>
         <Btn T={T} variant="ghost" onClick={selNone} style={{padding:"5px 10px"}}>Limpar</Btn>
       </div>
@@ -957,7 +955,6 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
   return(
     <div>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700}}>Clientes</span>
         <div style={{flex:1}}/>
         <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar..." style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"8px 14px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12,width:180}}/>
         {clientes.filter(c=>c.telefone).length>0&&(
@@ -1013,7 +1010,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                 return(
                   <tr key={cl.nome} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
                     <td style={{padding:"10px 13px"}}>
-                      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,color:T.strong}}>{cl.nome}</div>
+                      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,color:T.strong}}><ClienteLink nome={cl.nome}/></div>
                       {(()=>{const u=(contatos||{})[cl.nome.trim().toLowerCase()];const d=u?Math.floor((Date.now()-new Date(u).getTime())/864e5):null;
                         return d===null?<div style={{fontSize:10,color:T.warnText,marginTop:1}}><Clock3 size={10} style={{verticalAlign:"-1px"}}/> sem atualização enviada</div>
                           :d>15?<div style={{fontSize:10,color:T.dangerText,marginTop:1}}><Clock3 size={10} style={{verticalAlign:"-1px"}}/> última atualização há {d} dias</div>
@@ -1265,7 +1262,6 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,audiencias,s
 
   return(
     <div>
-      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700,marginBottom:20}}>Configurações</div>
       {msg&&<div style={{background:msg.startsWith("Erro")?T.dangerBg:T.successBg,border:`1px solid ${msg.startsWith("Erro")?T.dangerText:T.successText}44`,color:msg.startsWith("Erro")?T.dangerText:T.successText,borderRadius:8,padding:"10px 16px",marginBottom:16,fontSize:13}}>{msg}</div>}
 
       <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>Backup dos Dados</div>
@@ -1348,7 +1344,6 @@ const LINKS_DATA=[
 function TabLinks({T}){
   return(
     <div>
-      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:T.accent,fontWeight:700,marginBottom:20}}>Links Úteis</div>
       {LINKS_DATA.map(grupo=>(
         <div key={grupo.cat} style={{marginBottom:24}}>
           <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>{grupo.cat}</div>
@@ -1517,7 +1512,7 @@ function TabAudiencias({T,audiencias,setAudiencias,contracts,manual,clientesExtr
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <span style={{fontFamily:"var(--font-display)",fontSize:18,fontWeight:700,color:T.strong}}>{a.cliente}</span>
+                    <span style={{fontFamily:"var(--font-display)",fontSize:18,fontWeight:700,color:T.strong}}><ClienteLink nome={a.cliente}/></span>
                     <span style={{background:st.color+"22",color:st.color,border:`1px solid ${st.color}55`,borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:600}}>{st.label}</span>
                     <span style={{fontSize:12,color:cor,fontWeight:600}}>{rotuloDias(d)}</span>
                   </div>
@@ -1569,13 +1564,164 @@ function TabAudiencias({T,audiencias,setAudiencias,contracts,manual,clientesExtr
   );
 }
 
+/* ═══ UTILITÁRIOS DE NAVEGAÇÃO ═══ */
+const abrirFicha=nome=>{if(nome&&String(nome).trim())window.dispatchEvent(new CustomEvent("lex:ficha",{detail:String(nome).trim()}));};
+const ClienteLink=({nome,style,children})=>nome&&String(nome).trim()
+  ?<span role="link" tabIndex={0} className="cliente-link" title="Abrir ficha do cliente" style={style}
+      onClick={e=>{e.stopPropagation();abrirFicha(nome);}} onKeyDown={e=>{if(e.key==="Enter")abrirFicha(nome);}}>{children??nome}</span>
+  :<span>—</span>;
+const semAcento=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+const itensPagamento=(contracts,manual)=>[
+  ...contracts.flatMap(c=>(c.schedule||[]).map(x=>({cliente:c.cliente,desc:x.descricao||"Parcela",mes:x.mes,ano:x.ano,valor:fmtN(x.valor),pago:!!x.pago}))),
+  ...manual.map(p=>({cliente:p.cliente,desc:p.descricao||"Pagamento",mes:p.mes,ano:p.ano,valor:fmtN(p.valor),pago:!!p.pago})),
+].filter(x=>x.mes&&x.ano);
+const contaAtrasos=(contracts,manual)=>{const n=new Date(),cur=n.getFullYear()*12+n.getMonth()+1;return itensPagamento(contracts,manual).filter(x=>!x.pago&&x.ano*12+x.mes<cur).length;};
+
+/* ═══ BUSCA GLOBAL (Ctrl+K) ═══ */
+function BuscaGlobal({T,contracts,manual,clientesExtra,audiencias,tabs,setTab,onClose}){
+  const [q,setQ]=useState("");
+  const [idx,setIdx]=useState(0);
+  const nomes=[...new Map([...contracts.map(c=>c.cliente),...manual.map(p=>p.cliente),...(clientesExtra||[]).map(c=>c.nome)]
+    .filter(n=>n&&n.trim()).map(n=>[n.trim().toLowerCase(),n.trim()])).values()];
+  const t=semAcento(q.trim());
+  const itens=[];
+  if(t){
+    nomes.filter(n=>semAcento(n).includes(t)).slice(0,6).forEach(n=>itens.push({g:"Clientes",icon:Users,label:n,sub:"Abrir ficha do cliente",run:()=>abrirFicha(n)}));
+    contracts.filter(c=>semAcento(`${c.cliente} ${c.numeroProcesso}`).includes(t)).slice(0,5).forEach(c=>itens.push({g:"Contratos",icon:FileText,label:c.cliente||"—",sub:`${c.areaAtuacao||""}${c.numeroProcesso?" · Proc. "+c.numeroProcesso:""} · ${fmt(c.valorTotal)}`,run:()=>setTab("contratos")}));
+    audiencias.filter(a=>semAcento(`${a.cliente} ${a.numeroProcesso} ${a.local} ${a.tipo}`).includes(t)).sort(ordAud).slice(0,5).forEach(a=>itens.push({g:"Audiências",icon:Gavel,label:`${a.cliente} · ${a.tipo}`,sub:`${fmtBR(a.data)}${a.hora?" às "+a.hora:""}${a.local?" · "+a.local:""}`,run:()=>setTab("audiencias")}));
+  }
+  tabs.filter(x=>!t||semAcento(x.label).includes(t)).forEach(x=>itens.push({g:"Ir para",icon:x.icon,label:x.label,sub:"",run:()=>setTab(x.id)}));
+  useEffect(()=>setIdx(0),[q]);
+  const escolher=it=>{if(!it)return;onClose();it.run();};
+  function onKey(e){
+    if(e.key==="ArrowDown"){e.preventDefault();setIdx(i=>Math.min(i+1,itens.length-1));}
+    else if(e.key==="ArrowUp"){e.preventDefault();setIdx(i=>Math.max(i-1,0));}
+    else if(e.key==="Enter"){e.preventDefault();escolher(itens[idx]);}
+    else if(e.key==="Escape")onClose();
+  }
+  let ultimo="";
+  return(
+    <div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"#0008",zIndex:1100,display:"flex",justifyContent:"center",alignItems:"flex-start",padding:"12vh 16px 16px"}}>
+      <div className="pop" role="dialog" aria-label="Busca" style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,width:"100%",maxWidth:620,boxShadow:"var(--shadow-lg)",overflow:"hidden"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 18px",borderBottom:`1px solid ${T.border}`}}>
+          <Search size={18} color={T.muted}/>
+          <input autoFocus value={q} onChange={e=>setQ(e.target.value)} onKeyDown={onKey} placeholder="Buscar cliente, processo, audiência ou ir para uma aba..."
+            style={{flex:1,background:"transparent",border:"none",color:T.strong,fontSize:15,boxShadow:"none"}}/>
+          <kbd className="kbd">Esc</kbd>
+        </div>
+        <div style={{maxHeight:"50vh",overflowY:"auto",padding:"6px"}}>
+          {itens.length===0&&<div style={{padding:"24px",textAlign:"center",color:T.muted,fontSize:13}}>Nada encontrado para “{q}”.</div>}
+          {itens.map((it,i)=>{
+            const cab=it.g!==ultimo;ultimo=it.g;const I=it.icon;
+            return(<div key={i}>
+              {cab&&<div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:T.muted,padding:"10px 12px 4px"}}>{it.g}</div>}
+              <div onMouseEnter={()=>setIdx(i)} onClick={()=>escolher(it)} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 12px",borderRadius:9,cursor:"pointer",background:i===idx?T.card2:"transparent",border:`1px solid ${i===idx?T.border:"transparent"}`}}>
+                <I size={16} color={i===idx?T.accent:T.muted}/>
+                <div style={{flex:1,minWidth:0}}><div style={{color:T.strong,fontSize:14,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.label}</div>
+                  {it.sub&&<div style={{fontSize:11,color:T.muted}}>{it.sub}</div>}</div>
+                {i===idx&&<CornerDownLeft size={14} color={T.muted}/>}
+              </div></div>);
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ FICHA DO CLIENTE ═══ */
+function FichaCliente({T,nome,contracts,manual,clientesExtra,audiencias,contatos,marcarContato,setTab,onClose}){
+  const key=nome.trim().toLowerCase();
+  const igual=n=>(n||"").trim().toLowerCase()===key;
+  const ctts=contracts.filter(c=>igual(c.cliente));
+  const mans=manual.filter(p=>igual(p.cliente));
+  const extra=(clientesExtra||[]).find(c=>igual(c.nome))||{};
+  const tel=extra.telefone||(ctts.find(c=>c.telefone)||{}).telefone||(mans.find(p=>p.telefone)||{}).telefone||"";
+  const parc=[...ctts.flatMap(c=>(c.schedule||[]).map(x=>({desc:x.descricao||"Parcela",mes:x.mes,ano:x.ano,valor:fmtN(x.valor),pago:!!x.pago}))),
+              ...mans.map(p=>({desc:p.descricao||"Pagamento",mes:p.mes,ano:p.ano,valor:fmtN(p.valor),pago:!!p.pago}))].sort((a,b)=>(a.ano*12+a.mes)-(b.ano*12+b.mes));
+  const total=ctts.reduce((s,c)=>s+fmtN(c.valorTotal),0)+mans.reduce((s,p)=>s+fmtN(p.valor),0);
+  const recebido=parc.filter(x=>x.pago).reduce((s,x)=>s+x.valor,0);
+  const auds=audiencias.filter(a=>igual(a.cliente)).sort(ordAud);
+  const u=(contatos||{})[key];const dias=u?Math.floor((Date.now()-new Date(u).getTime())/864e5):null;
+  const Sec=({titulo,children})=><div style={{marginBottom:18}}><div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:T.muted,marginBottom:8,borderBottom:`1px solid ${T.border}`,paddingBottom:5}}>{titulo}</div>{children}</div>;
+  const Linha=({children})=><div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${T.border}`,fontSize:13}}>{children}</div>;
+  const Dado=({l,v})=><div style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,color:T.muted,textTransform:"uppercase"}}>{l}</div><div style={{color:T.strong,fontSize:13,wordBreak:"break-word"}}>{v||"—"}</div></div>;
+  const num=tel.replace(/\D/g,"");const wa=num?`https://wa.me/${num.length===10||num.length===11?"55"+num:num}`:"";
+  return(
+    <Modal T={T} title={nome} sub={[tel,extra.email].filter(Boolean).join(" · ")||"Ficha do cliente"} onClose={onClose} width={860}
+      footer={<>
+        {wa&&<Btn T={T} variant="ghost" onClick={()=>window.open(wa,"_blank")}><MessageCircle size={14}/> WhatsApp</Btn>}
+        <Btn T={T} variant="ghost" onClick={()=>{onClose();setTab("clientes");}}><Pencil size={14}/> Editar cadastro</Btn>
+        <Btn T={T} variant="secondary" onClick={onClose}>Fechar</Btn></>}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:18}}>
+        {[["Honorários",fmt(total),T.accent],["Recebido",fmt(recebido),T.successText],["A receber",fmt(Math.max(total-recebido,0)),T.warnText]].map(([l,v,c])=>(
+          <div key={l} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
+            <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:".06em"}}>{l}</div>
+            <div style={{fontFamily:"var(--font-display)",fontSize:22,fontWeight:700,color:c}}>{v}</div></div>))}
+      </div>
+      <Sec titulo="Dados cadastrais">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <Dado l="CPF" v={extra.cpf}/><Dado l="Telefone" v={tel}/><Dado l="E-mail" v={extra.email}/>
+          <Dado l="Endereço" v={[extra.endereco,extra.cidade].filter(Boolean).join(" — ")}/>
+          {extra.observacoes&&<div style={{gridColumn:"1/-1"}}><Dado l="Observações" v={extra.observacoes}/></div>}
+        </div>
+      </Sec>
+      <Sec titulo={`Contratos (${ctts.length})`}>
+        {ctts.length===0?<div style={{color:T.muted,fontSize:13}}>Nenhum contrato.</div>
+          :ctts.map(c=>{const st=STATUS_CFG[c.status]||STATUS_CFG.pendente;return(
+            <Linha key={c.id}><ABadge area={c.areaAtuacao}/><span style={{color:st.color,fontWeight:600,fontSize:12}}>{st.label}</span>
+              <span style={{flex:1,color:T.muted,fontSize:12}}>{c.numeroProcesso?`Proc. ${c.numeroProcesso}`:"Sem nº de processo"}</span>
+              <b style={{color:T.accent}}>{fmt(c.valorTotal)}</b></Linha>);})}
+      </Sec>
+      <Sec titulo={`Pagamentos (${parc.length})`}>
+        {parc.length===0?<div style={{color:T.muted,fontSize:13}}>Nenhum pagamento lançado.</div>
+          :parc.map((x,i)=>(
+            <Linha key={i}><span style={{minWidth:70,color:T.muted,fontSize:12}}>{MFS[x.mes-1]}/{x.ano}</span><span style={{flex:1}}>{x.desc}</span>
+              <b style={{color:x.pago?T.successText:T.warnText}}>{fmt(x.valor)}</b>
+              <span style={{fontSize:11,fontWeight:600,minWidth:72,textAlign:"right",color:x.pago?T.successText:T.warnText}}>{x.pago?"Recebido":"Pendente"}</span></Linha>))}
+      </Sec>
+      <Sec titulo={`Audiências (${auds.length})`}>
+        {auds.length===0?<div style={{color:T.muted,fontSize:13}}>Nenhuma audiência cadastrada.</div>
+          :auds.map(a=>{const st=AUD_STATUS[a.status]||AUD_STATUS.agendada;return(
+            <Linha key={a.id}><span style={{minWidth:88,fontWeight:600}}>{fmtBR(a.data)}</span><span style={{color:T.muted,minWidth:44}}>{a.hora}</span>
+              <span style={{flex:1}}>{a.tipo}{a.local?` · ${a.local}`:""}</span><span style={{fontSize:11,fontWeight:600,color:st.color}}>{st.label}</span></Linha>);})}
+      </Sec>
+      <Sec titulo="Atualizações ao cliente">
+        <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",fontSize:13}}>
+          <span style={{color:dias===null||dias>15?T.warnText:T.successText,fontWeight:600}}>{dias===null?"Nunca recebeu atualização":dias===0?"Atualizado hoje":`Última atualização há ${dias} dia${dias===1?"":"s"}`}</span>
+          <Btn T={T} variant="ghost" style={{padding:"5px 12px",fontSize:12}} onClick={()=>marcarContato(nome)}><Check size={13}/> Registrar atualização de hoje</Btn>
+        </div>
+      </Sec>
+    </Modal>
+  );
+}
+
+/* ═══ GRÁFICO DO PAINEL (últimos 6 meses) ═══ */
+function GraficoSeisMeses({T,contracts,manual,costs}){
+  const ref=useRef(null),inst=useRef(null);
+  useEffect(()=>{
+    if(!ref.current)return;
+    const base=new Date(),meses=Array.from({length:6},(_,i)=>{const d=new Date(base.getFullYear(),base.getMonth()-5+i,1);return{m:d.getMonth()+1,a:d.getFullYear()};});
+    const itens=itensPagamento(contracts,manual);
+    const ent=meses.map(({m,a})=>itens.filter(x=>x.pago&&x.mes===m&&x.ano===a).reduce((s,x)=>s+x.valor,0));
+    const sai=meses.map(({m,a})=>costs.filter(c=>c.mes===m&&c.ano===a).reduce((s,c)=>s+fmtN(c.valor),0));
+    if(inst.current)inst.current.destroy();
+    inst.current=new Chart(ref.current,{type:"bar",
+      data:{labels:meses.map(x=>MFS[x.m-1]),datasets:[
+        {label:"Entradas",data:ent,backgroundColor:"#10b981",borderRadius:5,maxBarThickness:28},
+        {label:"Saídas",data:sai,backgroundColor:"#ef4444",borderRadius:5,maxBarThickness:28},
+        {type:"line",label:"Saldo",data:ent.map((e,i)=>e-sai[i]),borderColor:T.accent,backgroundColor:T.accent,tension:.35,pointRadius:4,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+        plugins:{legend:{labels:{color:T.chartText,font:{family:"Inter",size:12},boxWidth:12}},tooltip:{callbacks:{label:c=>" "+c.dataset.label+": "+fmt(c.raw)}}},
+        scales:{x:{grid:{display:false},ticks:{color:T.chartText}},y:{grid:{color:T.chartGrid},ticks:{color:T.chartText,callback:v=>v>=1000?(v/1000).toFixed(0)+"k":v},beginAtZero:true}}}});
+    return()=>{if(inst.current)inst.current.destroy();};
+  },[contracts,manual,costs,T.id]);
+  return <div style={{height:230,position:"relative"}}><canvas ref={ref}/></div>;
+}
+
 /* ═══ PAINEL INICIAL ═══ */
 function TabInicio({T,contracts,manual,costs,contatos,clientesExtra,audiencias,setTab}){
   const now=new Date(),mes=now.getMonth()+1,ano=now.getFullYear(),cur=ano*12+mes;
-  const itens=[
-    ...contracts.flatMap(c=>(c.schedule||[]).map(x=>({cliente:c.cliente,desc:x.descricao||"Parcela",mes:x.mes,ano:x.ano,valor:fmtN(x.valor),pago:!!x.pago}))),
-    ...manual.map(p=>({cliente:p.cliente,desc:p.descricao||"Pagamento",mes:p.mes,ano:p.ano,valor:fmtN(p.valor),pago:!!p.pago})),
-  ].filter(x=>x.mes&&x.ano);
+  const itens=itensPagamento(contracts,manual);
   const doMes=itens.filter(x=>x.mes===mes&&x.ano===ano);
   const recebido=doMes.filter(x=>x.pago).reduce((a,x)=>a+x.valor,0);
   const aReceber=doMes.filter(x=>!x.pago).reduce((a,x)=>a+x.valor,0);
@@ -1618,30 +1764,42 @@ function TabInicio({T,contracts,manual,costs,contatos,clientesExtra,audiencias,s
         <Kpi label="Saldo do mês" valor={fmt(saldo)} cor={saldo<0?T.dangerText:T.successText} icon={Wallet}/>
       </div>
 
+      {saldo<0&&(()=>{const cobre=recebido+aReceber>=custos;const c=cobre?T.warnText:T.dangerText;return(
+        <div style={{background:cobre?T.warnBg:T.dangerBg,border:`1px solid ${c}55`,color:c,borderRadius:12,padding:"12px 16px",marginBottom:14,display:"flex",gap:10,alignItems:"flex-start",fontSize:13}}>
+          <AlertTriangle size={18} style={{flexShrink:0,marginTop:1}}/>
+          <div><b>{cobre?"Mês ainda no vermelho":"Mês fechando no vermelho"}:</b> os custos ({fmt(custos)}) superam o recebido ({fmt(recebido)}) em {fmt(custos-recebido)}.
+            {cobre?` Há ${fmt(aReceber)} a receber, o que cobre a diferença se for pago.`:` Mesmo recebendo tudo o que está pendente (${fmt(aReceber)}), o mês não fecha no azul.`}</div>
+        </div>);})()}
+
+      <Card style={{marginBottom:14}}>
+        <Titulo icon={BarChart3}>Entradas, saídas e saldo — últimos 6 meses</Titulo>
+        <GraficoSeisMeses T={T} contracts={contracts} manual={manual} costs={costs}/>
+      </Card>
+
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:14,marginBottom:14}}>
         <Card>
           <Titulo icon={AlertCircle} color={atrasados.length?T.dangerText:T.muted}>Em atraso {atrasados.length>0&&`· ${atrasados.length} · ${fmt(totAtraso)}`}</Titulo>
           {atrasados.length===0?<Vazio>Nenhuma parcela em atraso.</Vazio>
-            :atrasados.slice(0,6).map((x,i)=><Linha key={i} a={x.cliente||"—"} b={`${x.desc} · ${MFS[x.mes-1]}/${x.ano}`} c={fmt(x.valor)} cor={T.dangerText}/>)}
+            :atrasados.slice(0,6).map((x,i)=><Linha key={i} a={<ClienteLink nome={x.cliente}/>} b={`${x.desc} · ${MFS[x.mes-1]}/${x.ano}`} c={fmt(x.valor)} cor={T.dangerText}/>)}
           {atrasados.length>6&&<div style={{fontSize:12,color:T.muted,paddingTop:8}}>+ {atrasados.length-6} outras em Pagamentos</div>}
           {atrasados.length>0&&<div style={{marginTop:12}}><Btn T={T} variant="ghost" onClick={()=>setTab("pagamentos")}>Ver pagamentos</Btn></div>}
         </Card>
         <Card>
           <Titulo icon={CalendarClock}>A receber neste mês {proximos.length>0&&`· ${proximos.length}`}</Titulo>
           {proximos.length===0?<Vazio>Nada pendente para {MFL[mes-1]}.</Vazio>
-            :proximos.slice(0,6).map((x,i)=><Linha key={i} a={x.cliente||"—"} b={x.desc} c={fmt(x.valor)} cor={T.warnText}/>)}
+            :proximos.slice(0,6).map((x,i)=><Linha key={i} a={<ClienteLink nome={x.cliente}/>} b={x.desc} c={fmt(x.valor)} cor={T.warnText}/>)}
           {proximos.length>6&&<div style={{fontSize:12,color:T.muted,paddingTop:8}}>+ {proximos.length-6} outros</div>}
         </Card>
         <Card>
           <Titulo icon={Gavel} color={proxAud.some(a=>diasAte(a.data)<=1)?T.warnText:T.muted}>Audiências nos próximos 7 dias {proxAud.length>0&&`· ${proxAud.length}`}</Titulo>
           {proxAud.length===0?<Vazio>Nenhuma audiência nesta semana.</Vazio>
-            :proxAud.slice(0,5).map(a=><Linha key={a.id} a={a.cliente||"—"} b={`${a.tipo}${a.local?" · "+a.local:""}`} c={`${rotuloDias(diasAte(a.data))}${a.hora?" "+a.hora:""}`} cor={diasAte(a.data)<=1?T.warnText:T.accent}/>)}
+            :proxAud.slice(0,5).map(a=><Linha key={a.id} a={<ClienteLink nome={a.cliente}/>} b={`${a.tipo}${a.local?" · "+a.local:""}`} c={`${rotuloDias(diasAte(a.data))}${a.hora?" "+a.hora:""}`} cor={diasAte(a.data)<=1?T.warnText:T.accent}/>)}
           <div style={{marginTop:12}}><Btn T={T} variant="ghost" onClick={()=>setTab("audiencias")}>Ver audiências</Btn></div>
         </Card>
         <Card>
           <Titulo icon={Clock3} color={semAtualizacao.length?T.warnText:T.muted}>Clientes sem atualização {semAtualizacao.length>0&&`· ${semAtualizacao.length}`}</Titulo>
           {semAtualizacao.length===0?<Vazio>Todos os clientes foram atualizados nos últimos 15 dias.</Vazio>
-            :semAtualizacao.slice(0,6).map(x=><Linha key={x.nome} a={x.nome} b={x.dias===null?"nunca recebeu atualização":`última há ${x.dias} dias`} c=""/>)}
+            :semAtualizacao.slice(0,6).map(x=><Linha key={x.nome} a={<ClienteLink nome={x.nome}/>} b={x.dias===null?"nunca recebeu atualização":`última há ${x.dias} dias`} c=""/>)}
           {semAtualizacao.length>6&&<div style={{fontSize:12,color:T.muted,paddingTop:8}}>+ {semAtualizacao.length-6} outros</div>}
           {semAtualizacao.length>0&&<div style={{marginTop:12}}><Btn T={T} variant="ghost" onClick={()=>setTab("clientes")}>Ir para clientes</Btn></div>}
         </Card>
@@ -1689,6 +1847,21 @@ function App(){
   const [contatos,setContatos] = useState({});   // {nomeminusculo: ISO da última atualização enviada}
   const [audiencias,setAudiencias] = useState([]);
   const [calOpen,setCalOpen] = useState(false);
+  const [buscaOpen,setBuscaOpen] = useState(false);
+  const [ficha,setFicha] = useState(null);
+  const [ordem,setOrdem] = useState(()=>{try{return JSON.parse(localStorage.getItem("lex_ordem")||"[]");}catch{return [];}});
+  const dragId = useRef(null);
+  useEffect(()=>{try{localStorage.setItem("lex_ordem",JSON.stringify(ordem));}catch{}},[ordem]);
+  useEffect(()=>{
+    const f=e=>setFicha(e.detail);
+    const k=e=>{
+      const alvo=e.target.tagName;
+      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();setBuscaOpen(o=>!o);}
+      else if(e.key==="/"&&!["INPUT","TEXTAREA","SELECT"].includes(alvo)){e.preventDefault();setBuscaOpen(true);}
+    };
+    window.addEventListener("lex:ficha",f);window.addEventListener("keydown",k);
+    return()=>{window.removeEventListener("lex:ficha",f);window.removeEventListener("keydown",k);};
+  },[]);
   const marcarContato=nome=>setContatos(p=>({...p,[nome.trim().toLowerCase()]:new Date().toISOString()}));
 
   /* ── 2. Estados de sync (exatamente como no prompt) ── */
@@ -1803,8 +1976,10 @@ function App(){
                    :             T.sWaitDot+"44";
   const syncPulse = !fbLoaded || fbSaving;
   const audProx = audiencias.filter(a=>a.status==="agendada"&&diasAte(a.data)>=0&&diasAte(a.data)<=3).length;
+  const atrasosN = contaAtrasos(contracts,manual);
+  const badges = {audiencias:audProx,pagamentos:atrasosN};
 
-  const TABS_MAIN=[
+  const BASE_MAIN=[
     {id:"inicio",label:"Início",icon:LayoutDashboard},
     {id:"contratos",label:"Contratos",icon:FileText},
     {id:"pagamentos",label:"Pagamentos",icon:Wallet},
@@ -1813,6 +1988,13 @@ function App(){
     {id:"audiencias",label:"Audiências",icon:Gavel},
     {id:"relatorio",label:"Relatório",icon:BarChart3},
   ];
+  const TABS_MAIN=[BASE_MAIN[0],...BASE_MAIN.slice(1).sort((a,b)=>{const ia=ordem.indexOf(a.id),ib=ordem.indexOf(b.id);return (ia<0?99:ia)-(ib<0?99:ib);})];
+  function soltar(alvoId){
+    const de=dragId.current;dragId.current=null;
+    if(!de||de===alvoId||alvoId==="inicio")return;
+    const ids=TABS_MAIN.map(t=>t.id).filter(i=>i!=="inicio");
+    ids.splice(ids.indexOf(de),1);ids.splice(ids.indexOf(alvoId),0,de);setOrdem(ids);
+  }
   const TABS_SEC=[
     {id:"configuracoes",label:"Config.",icon:Settings},
     {id:"links",label:"Links Úteis",icon:Link2},
@@ -1834,14 +2016,15 @@ function App(){
           </div>
           {TABS_MAIN.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} title={t.label} className={`nav-item${tab===t.id?" active":""}`}
+              draggable={t.id!=="inicio"} onDragStart={()=>{dragId.current=t.id;}} onDragOver={e=>{if(dragId.current)e.preventDefault();}} onDrop={e=>{e.preventDefault();soltar(t.id);}}
               style={tab===t.id?{background:T.tabActive,color:T.tabActiveText}:{color:T.muted}}>
-              <t.icon size={18} strokeWidth={1.9}/><span className="nav-label">{t.label}</span>{t.id==="audiencias"&&audProx>0&&<span className="nav-badge">{audProx}</span>}
+              <t.icon size={18} strokeWidth={1.9}/><span className="nav-label">{t.label}</span>{(badges[t.id]||0)>0&&<span className="nav-badge">{badges[t.id]}</span>}
             </button>))}
           <div style={{height:1,background:T.border,margin:"10px 6px"}}/>
           {TABS_SEC.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} title={t.label} className={`nav-item${tab===t.id?" active":""}`}
               style={tab===t.id?{background:T.tabActive,color:T.tabActiveText}:{color:T.muted}}>
-              <t.icon size={18} strokeWidth={1.9}/><span className="nav-label">{t.label}</span>{t.id==="audiencias"&&audProx>0&&<span className="nav-badge">{audProx}</span>}
+              <t.icon size={18} strokeWidth={1.9}/><span className="nav-label">{t.label}</span>{(badges[t.id]||0)>0&&<span className="nav-badge">{badges[t.id]}</span>}
             </button>))}
           <div style={{flex:1}}/>
           <div className="theme-row" style={{display:"flex",gap:4,padding:"0 4px 10px"}}>
@@ -1860,6 +2043,9 @@ function App(){
                 return <><I size={20} color={T.accent}/><span style={{fontFamily:"var(--font-display)",fontSize:22,fontWeight:700,color:T.strong}}>{cur.label}</span></>;})()}
             </div>
             <div style={{flex:1}}/>
+            <button onClick={()=>setBuscaOpen(true)} className="bhov search-btn" title="Buscar (Ctrl+K)" style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:10,padding:"7px 12px",color:T.muted,fontSize:13,cursor:"pointer",gap:8}}>
+              <Search size={15}/><span className="search-label">Buscar</span><kbd className="kbd">Ctrl K</kbd>
+            </button>
             <div className="sync-pill" style={{background:syncBg,border:`1px solid ${syncBorder}`}} title={fbError||""}>
               <CloudIcon size={14} color={cloudColor} className={syncPulse?"pulsing":""}/>
               <span style={{color:cloudColor}}>{cloudMsg}</span>
@@ -1879,10 +2065,9 @@ function App(){
       {/* ── CONTEÚDO ── */}
       <div key={tab} className="page-enter content">
         {!fbLoaded
-          ?<div style={{textAlign:"center",padding:"80px 0",color:T.muted,display:"flex",flexDirection:"column",alignItems:"center",gap:14}}>
-            <div className="spin" style={{width:32,height:32,border:`3px solid ${T.border2}`,borderTopColor:T.accent,borderRadius:"50%"}}/>
-            Conectando...
-          </div>
+          ?<div aria-busy="true"><div className="skeleton" style={{height:34,width:220,marginBottom:20}}/>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:14,marginBottom:14}}>{[0,1,2,3].map(i=><div key={i} className="skeleton" style={{height:96}}/>)}</div>
+            <div className="skeleton" style={{height:240,marginBottom:14}}/><div className="skeleton" style={{height:160}}/></div>
           :tab==="inicio"       ?<TabInicio T={T} contracts={contracts} manual={manual} costs={costs} contatos={contatos} clientesExtra={clientesExtra} audiencias={audiencias} setTab={setTab}/>
           :tab==="audiencias"   ?<TabAudiencias T={T} audiencias={audiencias} setAudiencias={setAudiencias} contracts={contracts} manual={manual} clientesExtra={clientesExtra}/>
           :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts}/>
@@ -1899,9 +2084,11 @@ function App(){
       <nav className="bottomnav" style={{background:T.hdr,borderTop:`1px solid ${T.border}`}}>
         {[...TABS_MAIN,...TABS_SEC].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} className={`bn-item${tab===t.id?" active":""}`} style={{color:tab===t.id?T.accent:T.muted}}>
-            <t.icon size={20} strokeWidth={1.9}/><span>{t.label}</span>{t.id==="audiencias"&&audProx>0&&<span className="nav-badge bn">{audProx}</span>}
+            <t.icon size={20} strokeWidth={1.9}/><span>{t.label}</span>{(badges[t.id]||0)>0&&<span className="nav-badge bn">{badges[t.id]}</span>}
           </button>))}
       </nav>
+      {buscaOpen&&<BuscaGlobal T={T} contracts={contracts} manual={manual} clientesExtra={clientesExtra} audiencias={audiencias} tabs={[...TABS_MAIN,...TABS_SEC]} setTab={setTab} onClose={()=>setBuscaOpen(false)}/>}
+      {ficha&&<FichaCliente T={T} nome={ficha} contracts={contracts} manual={manual} clientesExtra={clientesExtra} audiencias={audiencias} contatos={contatos} marcarContato={marcarContato} setTab={setTab} onClose={()=>setFicha(null)}/>}
       <DialogHost T={T}/>
     </div>
   );
