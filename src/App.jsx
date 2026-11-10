@@ -1328,7 +1328,7 @@ const LINKS_DATA=[
   {cat:"Previdência e INSS",items:[
     {label:"INSS — Meu INSS",url:"https://meu.inss.gov.br/",desc:"Portal de serviços do INSS"},
     {label:"CNIS — Consulta",url:"https://meu.inss.gov.br/",desc:"Cadastro Nacional de Informações Sociais"},
-    {label:"Calculadora INSS / TNU",url:"https://www.jf.jus.br/jf/calculadoras",desc:"Calculadoras previdenciárias da JF"},
+    {label:"CJF — Justiça Federal",url:"https://www.cjf.jus.br/",desc:"Manual de Cálculos da Justiça Federal e tabelas da TNU (índices previdenciários)"},
   ]},
   {cat:"Intimações e Diários",items:[
     {label:"Domicílio Judicial Eletrônico",url:"https://domicilio-eletronico.pdpj.jus.br/",desc:"Citações e intimações eletrônicas (login gov.br)"},
@@ -1377,8 +1377,8 @@ const LINKS_DATA=[
   {cat:"Legislação e Jurisprudência",items:[
     {label:"LegisWeb / Planalto",url:"https://www.planalto.gov.br/legislacao",desc:"Legislação federal compilada"},
     {label:"JusBrasil",url:"https://www.jusbrasil.com.br/",desc:"Processos, jurisprudência e legislação"},
-    {label:"IBGE — Tabela SELIC/INPC",url:"https://www.ibge.gov.br/",desc:"Índices para correção monetária"},
-    {label:"Banco Central — Calculadora",url:"https://www.bcb.gov.br/conversao",desc:"Correção monetária e câmbio"},
+    {label:"IBGE — Inflação (IPCA/INPC)",url:"https://ibge.gov.br/explica/inflacao.php",desc:"Séries históricas dos índices; para calcular, use a Calculadora do Cidadão"},
+    {label:"Calculadora do Cidadão — Banco Central",url:"https://www3.bcb.gov.br/CALCIDADAO/publico/exibirFormCorrecaoValores.do?method=exibirFormCorrecaoValores",desc:"Correção de valores por IPCA, INPC, IGP-M, SELIC e outros índices"},
   ]},
   {cat:"OAB e Cadastros",items:[
     {label:"CNA — Cadastro Nacional de Advogados",url:"https://cna.oab.org.br/",desc:"Consulta de advogados inscritos e situação na OAB"},
