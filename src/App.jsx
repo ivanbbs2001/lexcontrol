@@ -1873,7 +1873,9 @@ function TabInicio({T,contracts,manual,costs,contatos,clientesExtra,audiencias,s
     <div>
       <div style={{marginBottom:20}}>
         <div style={{fontFamily:"var(--font-display)",fontSize:26,fontWeight:700,color:T.accent}}>{now.getHours()<12?"Bom dia":now.getHours()<18?"Boa tarde":"Boa noite"}</div>
-        <div style={{fontStyle:"italic",color:T.muted,fontSize:14,margin:"4px 0 6px",maxWidth:620,lineHeight:1.45,fontFamily:"var(--font-display)"}}>“{mensagemDoDia().t}”</div>
+        {(()=>{const m=mensagemDoDia();return(<div style={{margin:"4px 0 8px",maxWidth:720}}>
+          <div style={{fontStyle:"italic",color:T.muted,fontSize:14,lineHeight:1.45,fontFamily:"var(--font-display)"}}>“{m.t}”</div>
+          <div style={{color:T.muted,fontSize:11,opacity:.75,marginTop:3}}>— {m.f}</div></div>);})()}
         <div style={{color:T.muted,fontSize:13}}>Resumo de {MFL[mes-1]} de {ano}</div>
       </div>
 
