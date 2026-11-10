@@ -253,7 +253,8 @@ function TabContratos({T,contracts,setContracts}){
       setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:p.advogado||ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||""},...prev]);
     }catch(e){setError(e.message||"Erro.");}finally{setLoading(false);setLoadMsg("");}
   }
-  function saveNew(){if(!nd.cliente)return;setContracts(p=>[{...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")},...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});}
+  function saveNew(){if(!nd.cliente)return;const novo={...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")};setContracts(p=>[novo,...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});gerarWord(novo);}
+  async function gerarWord(c){try{const {baixarContratoDocx}=await import("./contratoDoc");await baixarContratoDocx(c);notify("Contrato em Word gerado (veja a pasta Downloads).");}catch(e){notify("Não foi possível gerar o Word: "+(e.message||e));}}
   function openM(c){setModal(c);setEditData({...c});setEditMode(false);sA({nome:"",pct:""});sS({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
   function saveEdit(){setContracts(p=>p.map(c=>c.id===editData.id?{...editData}:c));setModal({...editData});setEditMode(false);}
   function updSt(id,status){setContracts(p=>p.map(c=>c.id===id?{...c,status}:c));if(modal?.id===id)setModal(s=>({...s,status}));}
@@ -315,6 +316,7 @@ function TabContratos({T,contracts,setContracts}){
                   <td style={{padding:"10px 12px",whiteSpace:"nowrap"}}><StatusIcon status={c.status} size={15}/> <select value={c.status} onChange={e=>updSt(c.id,e.target.value)} style={{background:T.card2,color:st.color,border:`1px solid ${st.color}55`,borderRadius:6,padding:"3px 8px",fontSize:11,fontFamily:"var(--font-ui)",cursor:"pointer",appearance:"none"}}>{Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></td>
                   <td style={{padding:"10px 12px",color:T.muted,fontSize:11,whiteSpace:"nowrap"}}>{c.dataUpload}</td>
                   <td style={{padding:"10px 12px"}}><div style={{display:"flex",gap:5}}>
+                    <button className="bhov" title="Gerar contrato em Word" onClick={()=>gerarWord(c)} style={{background:T.successBg||T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><FileText size={14}/></button>
                     <button className="bhov" onClick={()=>openM(c)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><Search size={14}/></button>
                     <button className="bhov" onClick={()=>del(c.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><Trash2 size={14}/></button>
                   </div></td>
