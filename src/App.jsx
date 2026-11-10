@@ -4,7 +4,7 @@ import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
 import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
-import {Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
+import {Home,Zap,Globe,Smartphone,Laptop,UserRound,Calculator,Paperclip,Car,Pin,CreditCard,CircleDollarSign,Filter,FilterX,Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
 
@@ -68,16 +68,19 @@ const THEMES={
 const MFL=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const MFS=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const COST_CATS=["Aluguel","Energia","Internet","Telefone","Software","Pessoal","Contabilidade","Material de Escritório","Transporte","Outros"];
-const COST_EMOJI={"Aluguel":"🏠","Energia":"⚡","Internet":"🌐","Telefone":"📱","Software":"💻","Pessoal":"👤","Contabilidade":"📊","Material de Escritório":"📎","Transporte":"🚗","Outros":"📌"};
 const AREAS=["Cível","Previdenciária","Penal / Criminal","Trabalhista","Administrativa","Consumidor","Família e Sucessões","Tributária / Fiscal","Empresarial","Imobiliária","Ambiental","Eleitoral","Militar","Internacional","Outro"];
 const FORMAS=["PIX","Boleto","Transferência","Dinheiro","Cartão de Crédito","Cartão de Débito","Cheque","Outro"];
 const AREA_COLORS={"Cível":"#3b82f6","Previdenciária":"#10b981","Penal / Criminal":"#ef4444","Trabalhista":"#f59e0b","Administrativa":"#8b5cf6","Consumidor":"#06b6d4","Família e Sucessões":"#ec4899","Tributária / Fiscal":"#f97316","Empresarial":"#6366f1","Imobiliária":"#84cc16","Ambiental":"#14b8a6","Outro":"#94a3b8"};
 const STATUS_CFG={
-  pendente:     {label:"Pendente",              icon:"●",color:"#f59e0b"},
-  em_pagamento: {label:"Em Pagamento",           icon:"●",color:"#3b82f6"},
-  pago:         {label:"Pago",                   icon:"●",color:"#10b981"},
-  pago_pendente:{label:"Pago · Serviço Pendente",icon:"●",color:"#a78bfa"},
+  pendente:     {label:"Pendente",              icon:Hourglass,   color:"#f59e0b"},
+  em_pagamento: {label:"Em Pagamento",           icon:CreditCard,  color:"#3b82f6"},
+  pago:         {label:"Pago",                   icon:CheckCircle2,color:"#10b981"},
+  pago_pendente:{label:"Pago · Serviço Pendente",icon:AlertTriangle,color:"#a78bfa"},
 };
+const StatusIcon=({status,size=13})=>{const st=STATUS_CFG[status]||STATUS_CFG.pendente;const I=st.icon;return <I size={size} color={st.color} style={{flexShrink:0}}/>;};
+const COST_ICON={"Aluguel":Home,"Energia":Zap,"Internet":Globe,"Telefone":Smartphone,"Software":Laptop,"Pessoal":UserRound,"Contabilidade":Calculator,"Material de Escritório":Paperclip,"Transporte":Car,"Outros":Pin};
+const CostIcon=({cat,size=15,color})=>{const I=COST_ICON[cat]||Pin;return <I size={size} color={color} style={{flexShrink:0}}/>;};
+
 const AI_PROMPT=`Você é especialista em contratos jurídicos brasileiros.
 Retorne SOMENTE JSON válido, sem texto extra, sem markdown:
 {"advogado":"","cliente":"","telefone":"","numeroProcesso":"","areaAtuacao":"Cível","valorTotal":"8500.00","formaPagamento":"","totalParcelas":"3","valorParcela":"2833.33","prazos":"","observacoes":""}
@@ -169,7 +172,7 @@ function CForm({T,data,set,nA,sA,nS,sS}){
         <Fld T={T} label="Valor por Parcela" value={data.valorParcela} onChange={v=>set(d=>({...d,valorParcela:v}))}/>
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Prazos" value={data.prazos} onChange={v=>set(d=>({...d,prazos:v}))}/></div>
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Observações" value={data.observacoes} onChange={v=>set(d=>({...d,observacoes:v}))} type="textarea"/></div>
-        <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Status" value={data.status} onChange={v=>set(d=>({...d,status:v}))} options={Object.entries(STATUS_CFG).map(([k,v])=>({v:k,l:`${v.icon} ${v.label}`}))}/></div>
+        <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Status" value={data.status} onChange={v=>set(d=>({...d,status:v}))} options={Object.entries(STATUS_CFG).map(([k,v])=>({v:k,l:v.label}))}/></div>
       </div>
       <SecTitle T={T}>Co-advogados</SecTitle>
       <div style={{marginBottom:16}}>
@@ -221,6 +224,19 @@ function TabContratos({T,contracts,setContracts}){
   const [showNew,setShowNew]=useState(false);const [nd,setNd]=useState(newC());
   const [nA2,sA2]=useState({nome:"",pct:""});const [nS2,sS2]=useState({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});
   const fileRef=useRef();
+  const [fl,setFl]=useState({q:"",area:"",status:"",adv:"",de:"",ate:""});
+  const setF=(k,v)=>setFl(f=>({...f,[k]:v}));
+  const isoUpload=c=>{const m=(c.dataUpload||"").match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?`${m[3]}-${m[2]}-${m[1]}`:"";};
+  const advs=[...new Set(contracts.map(c=>c.advogado).filter(Boolean))].sort();
+  const visiveis=contracts.filter(c=>{
+    if(fl.q&&!semAcento(`${c.cliente} ${c.numeroProcesso}`).includes(semAcento(fl.q.trim())))return false;
+    if(fl.area&&c.areaAtuacao!==fl.area)return false;
+    if(fl.status&&c.status!==fl.status)return false;
+    if(fl.adv&&c.advogado!==fl.adv)return false;
+    if(fl.de||fl.ate){const d=isoUpload(c);if(!d)return false;if(fl.de&&d<fl.de)return false;if(fl.ate&&d>fl.ate)return false;}
+    return true;
+  });
+  const filtrando=Object.values(fl).some(Boolean);
 
   async function processFile(file){
     setError("");setLoading(true);setLoadMsg("Lendo arquivo...");
@@ -269,20 +285,34 @@ function TabContratos({T,contracts,setContracts}){
           <div style={{display:"flex",gap:8,marginTop:14}}><Btn T={T} variant="secondary" onClick={()=>setShowNew(false)}>Cancelar</Btn><Btn T={T} onClick={saveNew}>Salvar</Btn></div>
         </div>
       )}
+      {contracts.length>0&&(
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 14px",marginBottom:12,display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,color:T.muted,fontSize:12,fontWeight:600,alignSelf:"center"}}><Filter size={15}/></div>
+          <div style={{flex:"1 1 150px",minWidth:130}}><Fld T={T} label="Cliente / processo" value={fl.q} onChange={v=>setF("q",v)} ph="Buscar..."/></div>
+          <div style={{flex:"1 1 130px",minWidth:120}}><Fld T={T} label="Área" value={fl.area} onChange={v=>setF("area",v)} options={[{v:"",l:"Todas"},...AREAS]}/></div>
+          <div style={{flex:"1 1 150px",minWidth:140}}><Fld T={T} label="Status do pagamento" value={fl.status} onChange={v=>setF("status",v)} options={[{v:"",l:"Todos"},...Object.entries(STATUS_CFG).map(([v,c])=>({v,l:c.label}))]}/></div>
+          <div style={{flex:"1 1 120px",minWidth:110}}><Fld T={T} label="Advogado" value={fl.adv} onChange={v=>setF("adv",v)} options={[{v:"",l:"Todos"},...advs]}/></div>
+          <div style={{flex:"0 0 140px"}}><Fld T={T} label="Cadastro de" type="date" value={fl.de} onChange={v=>setF("de",v)}/></div>
+          <div style={{flex:"0 0 140px"}}><Fld T={T} label="até" type="date" value={fl.ate} onChange={v=>setF("ate",v)}/></div>
+          {filtrando&&<Btn T={T} variant="ghost" onClick={()=>setFl({q:"",area:"",status:"",adv:"",de:"",ate:""})}><FilterX size={14}/> Limpar</Btn>}
+          <div style={{flexBasis:"100%",fontSize:12,color:T.muted}}>{visiveis.length} de {contracts.length} contrato{contracts.length===1?"":"s"}{filtrando&&visiveis.length>0&&<> · total filtrado <b style={{color:T.accent}}>{fmt(visiveis.reduce((a,c)=>a+fmtN(c.valorTotal),0))}</b></>}</div>
+        </div>)}
       {contracts.length===0
         ?<div style={{textAlign:"center",color:T.muted,padding:"60px 0",fontSize:13}}>Nenhum contrato. Envie ou cadastre manualmente.</div>
+        :visiveis.length===0
+        ?<div style={{textAlign:"center",color:T.muted,padding:"40px 0",fontSize:13}}>Nenhum contrato com esses filtros.</div>
         :<div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${T.border}`}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:T.card2}}>{["Área","Cliente / Contato","Advogado","Processo","Valor","Status","Data",""].map(h=><th key={h} style={{padding:"9px 12px",textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
             <tbody>
-              {contracts.map((c,i)=>{const st=STATUS_CFG[c.status]||STATUS_CFG.pendente;return(
+              {visiveis.map((c,i)=>{const st=STATUS_CFG[c.status]||STATUS_CFG.pendente;return(
                 <tr key={c.id} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
                   <td style={{padding:"10px 12px"}}><ABadge area={c.areaAtuacao}/></td>
                   <td style={{padding:"10px 12px"}}><div style={{fontWeight:500,color:T.strong,fontSize:13}}><ClienteLink nome={c.cliente}/></div>{c.telefone&&<div style={{marginTop:2}}><PhoneLink phone={c.telefone}/></div>}</td>
                   <td style={{padding:"10px 12px",color:T.infoText,fontSize:12}}>{c.advogado||"—"}</td>
                   <td style={{padding:"10px 12px",fontSize:11,color:T.muted,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={c.numeroProcesso}>{c.numeroProcesso||"—"}</td>
                   <td style={{padding:"10px 12px",color:T.accent,fontWeight:700}}>{fmt(c.valorTotal)}</td>
-                  <td style={{padding:"10px 12px"}}><select value={c.status} onChange={e=>updSt(c.id,e.target.value)} style={{background:T.card2,color:st.color,border:`1px solid ${st.color}55`,borderRadius:6,padding:"3px 8px",fontSize:11,fontFamily:"var(--font-ui)",cursor:"pointer",appearance:"none"}}>{Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</select></td>
+                  <td style={{padding:"10px 12px",whiteSpace:"nowrap"}}><StatusIcon status={c.status} size={15}/> <select value={c.status} onChange={e=>updSt(c.id,e.target.value)} style={{background:T.card2,color:st.color,border:`1px solid ${st.color}55`,borderRadius:6,padding:"3px 8px",fontSize:11,fontFamily:"var(--font-ui)",cursor:"pointer",appearance:"none"}}>{Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></td>
                   <td style={{padding:"10px 12px",color:T.muted,fontSize:11,whiteSpace:"nowrap"}}>{c.dataUpload}</td>
                   <td style={{padding:"10px 12px"}}><div style={{display:"flex",gap:5}}>
                     <button className="bhov" onClick={()=>openM(c)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><Search size={14}/></button>
@@ -299,7 +329,7 @@ function TabContratos({T,contracts,setContracts}){
           {editMode?<CForm T={T} data={editData} set={setEditData} nA={nA} sA={sA} nS={nS} sS={sS}/>
           :<div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              {[["Área",<ABadge area={modal.areaAtuacao}/>],["Advogado",modal.advogado],["Cliente",modal.cliente],["Telefone",<PhoneLink phone={modal.telefone}/>],["Nº Processo",modal.numeroProcesso||"—"],["Valor Total",fmt(modal.valorTotal)],["Forma de Pgto",modal.formaPagamento||"—"],["Parcelas",modal.totalParcelas>1?`${modal.totalParcelas}× ${fmt(modal.valorParcela)}`:"À vista"],["Status",`${STATUS_CFG[modal.status]?.icon} ${STATUS_CFG[modal.status]?.label}`],["Cadastrado",modal.dataUpload]].map(([l,v])=>(
+              {[["Área",<ABadge area={modal.areaAtuacao}/>],["Advogado",modal.advogado],["Cliente",modal.cliente],["Telefone",<PhoneLink phone={modal.telefone}/>],["Nº Processo",modal.numeroProcesso||"—"],["Valor Total",fmt(modal.valorTotal)],["Forma de Pgto",modal.formaPagamento||"—"],["Parcelas",modal.totalParcelas>1?`${modal.totalParcelas}× ${fmt(modal.valorParcela)}`:"À vista"],["Status",<span style={{display:"inline-flex",alignItems:"center",gap:6}}><StatusIcon status={modal.status}/>{STATUS_CFG[modal.status]?.label}</span>],["Cadastrado",modal.dataUpload]].map(([l,v])=>(
                 <div key={l} style={{background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`}}><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:3}}>{l}</div><div style={{color:T.strong,fontSize:13}}>{v||"—"}</div></div>
               ))}
               {modal.observacoes&&<div style={{gridColumn:"1/-1",background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`}}><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:3}}>Observações</div><div style={{color:T.text,fontSize:12,whiteSpace:"pre-wrap"}}>{modal.observacoes}</div></div>}
@@ -625,7 +655,7 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
         </div>
       </div>
 
-      {byCat.length>0&&<div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>{byCat.map(g=><div key={g.cat} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",flex:"1 1 100px",textAlign:"center"}}><div style={{fontSize:16,marginBottom:2}}>{COST_EMOJI[g.cat]||"📌"}</div><div style={{fontSize:12,color:T.accent,fontWeight:700}}>{fmt(g.tot)}</div><div style={{fontSize:10,color:T.muted,marginTop:1}}>{g.cat}</div></div>)}</div>}
+      {byCat.length>0&&<div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>{byCat.map(g=><div key={g.cat} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",flex:"1 1 100px",textAlign:"center"}}><div style={{marginBottom:3,display:"flex",justifyContent:"center",color:T.accent}}><CostIcon cat={g.cat} size={18}/></div><div style={{fontSize:12,color:T.accent,fontWeight:700}}>{fmt(g.tot)}</div><div style={{fontSize:10,color:T.muted,marginTop:1}}>{g.cat}</div></div>)}</div>}
 
       {showForm&&(
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
@@ -656,7 +686,7 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
                 <tr key={c.id} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
                   <td style={{padding:"9px 12px"}}><input type="checkbox" checked={c.pago} onChange={()=>setCosts(p=>p.map(x=>x.id===c.id?{...x,pago:!x.pago}:x))} style={{cursor:"pointer",accentColor:T.accent}}/></td>
                   <td style={{padding:"9px 12px",color:T.strong}}>{c.descricao}</td>
-                  <td style={{padding:"9px 12px"}}><span style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:4,padding:"2px 8px",fontSize:11,color:T.muted}}>{COST_EMOJI[c.categoria]||"📌"} {c.categoria}</span></td>
+                  <td style={{padding:"9px 12px"}}><span style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:4,padding:"2px 8px",fontSize:11,color:T.muted}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><CostIcon cat={c.categoria} size={13}/>{c.categoria}</span></span></td>
                   <td style={{padding:"9px 12px",color:T.accent,fontWeight:700}}>{fmt(c.valor)}</td>
                   <td style={{padding:"9px 12px",color:T.muted,fontSize:11}}>{c.dataPagamento||`${MFS[c.mes-1]}/${c.ano}`}</td>
                   <td style={{padding:"9px 12px"}}><span style={{fontSize:11,color:c.pago?T.successText:T.dangerText,fontWeight:600}}>{c.pago?"Pago":"Pendente"}</span></td>
@@ -811,7 +841,8 @@ function TabRelatorio({T,contracts,manual,costs}){
 /* ═══════════════════════════════════════════════════════
    TAB CLIENTES — lista com edição e exclusão
 ═══════════════════════════════════════════════════════ */
-const EMPTY_CLIENTE = ()=>({id:genId(),nome:"",cpf:"",telefone:"",email:"",endereco:"",cidade:"",observacoes:""});
+const ORIGENS=["Indicação de advogado","Indicação de cliente","Indicação de amigo/familiar","Instagram","Facebook","WhatsApp","Google / Site","Anúncio pago","Parceria / convênio","OAB / Assistência judiciária","Cliente antigo (retorno)","Outro"];
+const EMPTY_CLIENTE = ()=>({id:genId(),nome:"",cpf:"",telefone:"",email:"",endereco:"",cidade:"",origem:"",indicadoPor:"",observacoes:""});
 
 function fmtCPF(v){
   const d=v.replace(/\D/g,"").slice(0,11);
@@ -868,7 +899,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
   const clientes=[...allKeys].map(k=>{
     const fromData=clientMap[k]||{nome:"",processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
     const extra=(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===k)||{};
-    return{...fromData,cpf:extra.cpf||"",email:extra.email||"",endereco:extra.endereco||"",cidade:extra.cidade||"",observacoes:extra.observacoes||"",idExtra:extra.id||null};
+    return{...fromData,cpf:extra.cpf||"",email:extra.email||"",endereco:extra.endereco||"",cidade:extra.cidade||"",origem:extra.origem||"",indicadoPor:extra.indicadoPor||"",observacoes:extra.observacoes||"",idExtra:extra.id||null};
   }).filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.nome.localeCompare(b.nome));
 
@@ -879,7 +910,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
   function openNew(){setEditId(null);setFormCl(EMPTY_CLIENTE());setShowForm(true);}
   function openEdit(cl){
     setEditId(cl.idExtra||cl.nome);
-    setFormCl({id:cl.idExtra||genId(),nome:cl.nome,cpf:cl.cpf||"",telefone:cl.telefone||"",email:cl.email||"",endereco:cl.endereco||"",cidade:cl.cidade||"",observacoes:cl.observacoes||""});
+    setFormCl({id:cl.idExtra||genId(),nome:cl.nome,cpf:cl.cpf||"",telefone:cl.telefone||"",email:cl.email||"",endereco:cl.endereco||"",cidade:cl.cidade||"",origem:cl.origem||"",indicadoPor:cl.indicadoPor||"",observacoes:cl.observacoes||""});
     setShowForm(true);
   }
   function saveForm(){
@@ -978,6 +1009,10 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
             <Fld T={T} label="E-mail" value={formCl.email} onChange={v=>setFormCl(d=>({...d,email:v}))} ph="email@exemplo.com"/>
             <Fld T={T} label="Endereço" value={formCl.endereco} onChange={v=>setFormCl(d=>({...d,endereco:v}))} ph="Rua, número, bairro"/>
             <Fld T={T} label="Cidade / UF" value={formCl.cidade} onChange={v=>setFormCl(d=>({...d,cidade:v}))} ph="Cascavel / PR"/>
+            <Fld T={T} label="Como o cliente chegou?" value={formCl.origem||""} onChange={v=>setFormCl(d=>({...d,origem:v}))} options={[{v:"",l:"Não informado"},...ORIGENS]}/>
+            {(formCl.origem||"").startsWith("Indicação")||formCl.origem==="Parceria / convênio"
+              ?<Fld T={T} label={formCl.origem==="Parceria / convênio"?"Parceiro / convênio":"Indicado por"} value={formCl.indicadoPor||""} onChange={v=>setFormCl(d=>({...d,indicadoPor:v}))} ph="Nome de quem indicou"/>
+              :<div/>}
             <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Observações" value={formCl.observacoes} onChange={v=>setFormCl(d=>({...d,observacoes:v}))} type="textarea"/></div>
           </div>
           <div style={{display:"flex",gap:8}}>
@@ -1016,6 +1051,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                           :d>15?<div style={{fontSize:10,color:T.dangerText,marginTop:1}}><Clock3 size={10} style={{verticalAlign:"-1px"}}/> última atualização há {d} dias</div>
                           :<div style={{fontSize:10,color:T.muted,marginTop:1}}>atualizado há {d} dia{d===1?"":"s"}</div>;})()}
                       {cl.email&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{cl.email}</div>}
+                      {cl.origem&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>Origem: {cl.origem}{cl.indicadoPor?` (${cl.indicadoPor})`:""}</div>}
                     </td>
                     <td style={{padding:"10px 13px",color:T.muted,fontSize:11,fontFamily:"var(--font-ui)"}}>{cl.cpf||"—"}</td>
                     <td style={{padding:"10px 13px",fontSize:11}}>
@@ -1071,7 +1107,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                 <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",marginBottom:8}}>Processos</div>
                 {modalCliente.processos.map((p,i)=>{const st=STATUS_CFG[p.status]||STATUS_CFG.pendente;return(
                   <div key={i} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 13px",marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
-                    <ABadge area={p.area}/><span style={{fontSize:11,color:st.color,fontWeight:600}}>{st.icon} {st.label}</span>
+                    <ABadge area={p.area}/><span style={{fontSize:11,color:st.color,fontWeight:600}}><StatusIcon status={p.status} size={12}/> {st.label}</span>
                     <span style={{flex:1,color:T.muted,fontSize:11}}>{p.numeroProcesso||"Sem nº"}</span>
                     <span style={{color:T.accent,fontWeight:700}}>{fmt(p.valorTotal)}</span>
                   </div>
@@ -1117,7 +1153,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                   <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:8}}>Processos do cliente</div>
                   {(modalAtualizar.processos||[]).map((p,i)=>{const st=STATUS_CFG[p.status]||STATUS_CFG.pendente;return(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,fontSize:12}}>
-                      <span style={{color:st.color,fontWeight:600}}>{st.icon}</span>
+                      <span style={{color:st.color,fontWeight:600,display:"inline-flex"}}><StatusIcon status={p.status}/></span>
                       <span style={{color:T.muted,fontFamily:"var(--font-ui)",fontSize:11}}>{p.numeroProcesso||"Sem nº"}</span>
                       <ABadge area={p.area}/>
                       <span style={{marginLeft:"auto",color:T.accent,fontWeight:600}}>{fmt(p.valorTotal)}</span>
@@ -1225,7 +1261,8 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,audiencias,s
     const clientes={};
     contracts.forEach(c=>{if(!c.cliente)return;const k=c.cliente.trim();if(!clientes[k])clientes[k]={nome:c.cliente,telefone:c.telefone||"",area:c.areaAtuacao||"",processos:0,valorTotal:0};clientes[k].processos++;clientes[k].valorTotal+=fmtN(c.valorTotal);if(c.telefone&&!clientes[k].telefone)clientes[k].telefone=c.telefone;});
     manual.forEach(p=>{if(!p.cliente)return;const k=p.cliente.trim();if(!clientes[k])clientes[k]={nome:p.cliente,telefone:p.telefone||"",area:p.areaAtuacao||"",processos:0,valorTotal:0};clientes[k].valorTotal+=fmtN(p.valor);if(p.telefone&&!clientes[k].telefone)clientes[k].telefone=p.telefone;});
-    const rows=[["Nome","Telefone","Área","Processos","Valor Total"],...Object.values(clientes).map(c=>[c.nome,c.telefone,c.area,c.processos,c.valorTotal.toFixed(2)])];
+    const ex=n=>(clientesExtra||[]).find(e=>e.nome.trim().toLowerCase()===n.trim().toLowerCase())||{};
+    const rows=[["Nome","Telefone","Área","Processos","Valor Total","Origem","Indicado por"],...Object.values(clientes).map(c=>[c.nome,c.telefone,c.area,c.processos,c.valorTotal.toFixed(2),ex(c.nome).origem||"",ex(c.nome).indicadoPor||""])];
     const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
     const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);
@@ -1710,6 +1747,7 @@ function FichaCliente({T,nome,contracts,manual,clientesExtra,audiencias,contatos
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           <Dado l="CPF" v={extra.cpf}/><Dado l="Telefone" v={tel}/><Dado l="E-mail" v={extra.email}/>
           <Dado l="Endereço" v={[extra.endereco,extra.cidade].filter(Boolean).join(" — ")}/>
+          <Dado l="Como chegou" v={[extra.origem,extra.indicadoPor&&`(${extra.indicadoPor})`].filter(Boolean).join(" ")}/>
           {extra.observacoes&&<div style={{gridColumn:"1/-1"}}><Dado l="Observações" v={extra.observacoes}/></div>}
         </div>
       </Sec>
