@@ -583,7 +583,7 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
   const now=new Date();
   const [mes,setMes]=useState(now.getMonth()+1);const [ano,setAno]=useState(now.getFullYear());
   const [showForm,setShowForm]=useState(false);
-  const [form,setForm]=useState({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes:now.getMonth()+1,ano:now.getFullYear(),pago:false,dataPagamento:new Date().toLocaleDateString("pt-BR")});
+  const [form,setForm]=useState({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes:now.getMonth()+1,ano:now.getFullYear(),pago:false,dataPagamento:""});
   const [editId,setEditId]=useState(null);
   const monthly=costs.filter(c=>c.mes===mes&&c.ano===ano);
   const years=Array.from({length:6},(_,i)=>now.getFullYear()-2+i);
@@ -604,7 +604,7 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
     else{const base={...form,id:genId(),valor:fmtN(form.valor)};
       if(form.recorrente){const all=Array.from({length:12},(_,i)=>{let m=form.mes+i,a=form.ano;while(m>12){m-=12;a++;}return{...base,id:i===0?base.id:genId(),mes:m,ano:a};});setCosts(p=>[...p,...all]);}
       else setCosts(p=>[...p,base]);}
-    setForm({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes,ano,pago:false,dataPagamento:new Date().toLocaleDateString("pt-BR")});setShowForm(false);
+    setForm({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes,ano,pago:false,dataPagamento:""});setShowForm(false);
   }
   async function delCost(id){if(!await askConfirm("Confirmar exclusão deste custo?"))return;setCosts(p=>p.filter(x=>x.id!==id));}
 
@@ -623,7 +623,7 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
           <button className="bhov nav-arrow" onClick={()=>setAno(a=>a+1)} style={{background:T.card2,border:"none",fontSize:16,cursor:"pointer",color:T.accent,padding:"2px 8px",lineHeight:1,borderRadius:6,fontWeight:700}}>›</button>
         </div>
         <div style={{flex:1}}/>
-        <Btn T={T} onClick={()=>{setEditId(null);setForm({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes,ano,pago:false,dataPagamento:new Date().toLocaleDateString("pt-BR")});setShowForm(true);}}>+ Novo Custo</Btn>
+        <Btn T={T} onClick={()=>{setEditId(null);setForm({descricao:"",categoria:"Aluguel",valor:"",recorrente:false,mes,ano,pago:false,dataPagamento:""});setShowForm(true);}}>+ Novo Custo</Btn>
       </div>
 
       {/* COMPENSAÇÃO — receita vs custos */}
@@ -665,11 +665,11 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
             <Fld T={T} label="Categoria" value={form.categoria} onChange={v=>setForm(d=>({...d,categoria:v}))} options={COST_CATS}/>
             <Fld T={T} label="Valor R$" value={form.valor} onChange={v=>setForm(d=>({...d,valor:v}))}/>
             <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Mês</label><select value={form.mes} onChange={e=>setForm(d=>({...d,mes:Number(e.target.value)}))} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"7px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}>{MFL.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
-            <Fld T={T} label="Ano" value={form.ano} onChange={v=>setForm(d=>({...d,ano:Number(v)}))} type="number"/>
-            <Fld T={T} label="Data do Pagamento" value={form.dataPagamento||""} onChange={v=>setForm(d=>({...d,dataPagamento:v}))} ph="dd/mm/aaaa"/>
+            <Fld T={T} label="Ano de referência" value={form.ano} onChange={v=>setForm(d=>({...d,ano:Number(v)}))} type="number"/>
           </div>
           <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:14}}>
-            <label style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}><input type="checkbox" checked={form.pago} onChange={e=>setForm(d=>({...d,pago:e.target.checked}))} style={{accentColor:T.accent}}/> Já pago</label>
+            <label style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}><input type="checkbox" checked={form.pago} onChange={e=>setForm(d=>({...d,pago:e.target.checked,dataPagamento:e.target.checked?(d.dataPagamento||hojeISO()):""}))} style={{accentColor:T.accent}}/> Já pago</label>
+            {form.pago&&<Fld T={T} label="Data do pagamento" type="date" value={dataParaISO(form.dataPagamento)} onChange={v=>setForm(d=>({...d,dataPagamento:v}))}/>}
             {!editId&&<label style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",fontSize:12,color:T.text}}><input type="checkbox" checked={form.recorrente} onChange={e=>setForm(d=>({...d,recorrente:e.target.checked}))} style={{accentColor:T.accent}}/> Recorrente (12 meses)</label>}
           </div>
           <div style={{display:"flex",gap:8}}><Btn T={T} variant="secondary" onClick={()=>setShowForm(false)}>Cancelar</Btn><Btn T={T} onClick={save}>Salvar</Btn></div>
@@ -680,18 +680,18 @@ function CostsTab({T,contracts,manual,costs,setCosts}){
         ?<div style={{textAlign:"center",color:T.muted,padding:"60px 0"}}><Building2 size={38} strokeWidth={1.4} style={{margin:"0 auto 12px",display:"block"}}/>Nenhum custo em {MFL[mes-1]} de {ano}.</div>
         :<div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${T.border}`}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr style={{background:T.card2}}>{["","Descrição","Categoria","Valor","Data Pgto","Status",""].map(h=><th key={h} style={{padding:"9px 12px",textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,fontWeight:500}}>{h}</th>)}</tr></thead>
+            <thead><tr style={{background:T.card2}}>{["","Descrição","Categoria","Valor","Pagamento","Status",""].map(h=><th key={h} style={{padding:"9px 12px",textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${T.border}`,fontWeight:500}}>{h}</th>)}</tr></thead>
             <tbody>
               {monthly.map((c,i)=>(
                 <tr key={c.id} className="row-hover" style={{background:i%2===0?T.card:T.stripe,borderBottom:`1px solid ${T.border}`}}>
-                  <td style={{padding:"9px 12px"}}><input type="checkbox" checked={c.pago} onChange={()=>setCosts(p=>p.map(x=>x.id===c.id?{...x,pago:!x.pago}:x))} style={{cursor:"pointer",accentColor:T.accent}}/></td>
+                  <td style={{padding:"9px 12px"}}><input type="checkbox" checked={c.pago} onChange={()=>setCosts(p=>p.map(x=>x.id===c.id?{...x,pago:!x.pago,dataPagamento:!x.pago?hojeISO():""}:x))} style={{cursor:"pointer",accentColor:T.accent}}/></td>
                   <td style={{padding:"9px 12px",color:T.strong}}>{c.descricao}</td>
                   <td style={{padding:"9px 12px"}}><span style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:4,padding:"2px 8px",fontSize:11,color:T.muted}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><CostIcon cat={c.categoria} size={13}/>{c.categoria}</span></span></td>
                   <td style={{padding:"9px 12px",color:T.accent,fontWeight:700}}>{fmt(c.valor)}</td>
-                  <td style={{padding:"9px 12px",color:T.muted,fontSize:11}}>{c.dataPagamento||`${MFS[c.mes-1]}/${c.ano}`}</td>
+                  <td style={{padding:"9px 12px",color:T.muted,fontSize:11}}>{c.pago?(dataParaISO(c.dataPagamento)?fmtBR(dataParaISO(c.dataPagamento)):`${MFS[c.mes-1]}/${c.ano}`):`vence ${MFS[c.mes-1]}/${c.ano}`}</td>
                   <td style={{padding:"9px 12px"}}><span style={{fontSize:11,color:c.pago?T.successText:T.dangerText,fontWeight:600}}>{c.pago?"Pago":"Pendente"}</span></td>
                   <td style={{padding:"9px 12px"}}><div style={{display:"flex",gap:5}}>
-                    <button className="bhov" onClick={()=>{setForm({...c,valor:String(c.valor),dataPagamento:c.dataPagamento||new Date().toLocaleDateString("pt-BR")});setEditId(c.id);setShowForm(true);}} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}><Pencil size={14}/></button>
+                    <button className="bhov" onClick={()=>{setForm({...c,valor:String(c.valor),dataPagamento:c.pago?(dataParaISO(c.dataPagamento)||hojeISO()):""});setEditId(c.id);setShowForm(true);}} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}><Pencil size={14}/></button>
                     <button className="bhov" onClick={()=>delCost(c.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"4px 8px",fontSize:12}}><Trash2 size={14}/></button>
                   </div></td>
                 </tr>
@@ -1465,6 +1465,7 @@ const AUD_STATUS={
   cancelada:{label:"Cancelada",color:"#94a3b8"},
 };
 const newAud=()=>({id:null,data:hojeISO(),hora:"09:00",cliente:"",numeroProcesso:"",tipo:"Conciliação",status:"agendada",modalidade:"Presencial",local:"",link:"",advogado:ADV_PRINCIPAL,observacoes:""});
+const dataParaISO=v=>{if(!v)return "";if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;const m=String(v).match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?`${m[3]}-${m[2]}-${m[1]}`:"";};
 const ordAud=(a,b)=>(a.data+(a.hora||"")).localeCompare(b.data+(b.hora||""));
 
 function MiniCalendar({T,audiencias,setTab,onClose}){
