@@ -1,5 +1,6 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
+import "firebase/compat/auth";
 
 // Config pública do Firebase (a proteção real vem das regras do Firestore, não do sigilo desta chave)
 const FIREBASE_CONFIG = {
@@ -16,3 +17,7 @@ export const WS = "meu-escritorio";
 
 if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 export const db = firebase.firestore();
+export const auth = firebase.auth();
+
+// Login por nome de usuário: cada nome corresponde a uma conta e-mail/senha criada manualmente no console.
+export const USUARIOS = { JULIANA: "juliana@lexcontrol.app", IVAN: "ivan@lexcontrol.app" };

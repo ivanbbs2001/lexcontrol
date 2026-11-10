@@ -2,7 +2,7 @@
 import {useState,useEffect,useRef} from "react";
 import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
-import {db,WS} from "./firebase";
+import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
 import {getAntKey,setAntKey} from "./aiKey";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
@@ -1537,6 +1537,7 @@ function App(){
       <div style={{background:syncBg,borderBottom:`1px solid ${syncBorder}`,padding:"5px 20px",display:"flex",alignItems:"center",gap:8,minHeight:28,position:"sticky",top:0,zIndex:101}}>
         <span className={`sync-dot${syncPulse?" pulsing":""}`} style={{background:cloudColor}}/>
         <span style={{fontSize:11,color:cloudColor,fontWeight:500,flex:1}}>{cloudMsg}</span>
+        <button onClick={()=>auth.signOut()} style={{background:"none",border:"1px solid #ffffff44",borderRadius:5,padding:"2px 10px",fontSize:10,color:"#e5e5e5",cursor:"pointer",fontFamily:"'DM Mono',monospace"}}>Sair ⎋</button>
         {fbError&&<button onClick={()=>setFbError(null)} style={{background:"none",border:`1px solid #ef444466`,borderRadius:5,padding:"2px 8px",fontSize:10,color:"#f87171",cursor:"pointer"}}>✕</button>}
       </div>
 
@@ -1601,4 +1602,48 @@ function App(){
   );
 }
 
-export default App;
+/* ── LOGIN ── */
+function Login(){
+  const T=THEMES.industrial;
+  const [user,setUser]=useState("");
+  const [senha,setSenha]=useState("");
+  const [erro,setErro]=useState("");
+  const [loading,setLoading]=useState(false);
+  async function entrar(e){
+    e.preventDefault();
+    const email=USUARIOS[user.trim().toUpperCase()];
+    if(!email){setErro("Usuário ou senha inválidos.");return;}
+    setLoading(true);setErro("");
+    try{await auth.signInWithEmailAndPassword(email,senha);}
+    catch(err){
+      setErro(err.code==="auth/too-many-requests"?"Muitas tentativas. Aguarde alguns minutos.":"Usuário ou senha inválidos.");
+      setLoading(false);
+    }
+  }
+  const inp={width:"100%",background:T.inp,border:`1px solid ${T.border2}`,borderRadius:8,padding:"11px 14px",color:T.text,fontFamily:"'DM Mono',monospace",fontSize:14,marginBottom:12};
+  return(
+    <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"'DM Mono',monospace"}}>
+      <form onSubmit={entrar} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:"30px 28px",width:"100%",maxWidth:360,boxShadow:"0 20px 60px #0004"}}>
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <img src={LOGO_SRC} alt="Juliana Savi Advogada" style={{height:80,objectFit:"contain"}}/>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:T.accent,marginTop:6}}>LexControl</div>
+          <div style={{fontSize:11,color:T.muted}}>Acesso restrito</div>
+        </div>
+        <input value={user} onChange={e=>setUser(e.target.value)} placeholder="Usuário" autoCapitalize="characters" autoComplete="username" style={inp}/>
+        <input type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Senha" autoComplete="current-password" style={inp}/>
+        {erro&&<div style={{background:T.dangerBg,color:T.dangerText,border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:12}}>{erro}</div>}
+        <button type="submit" disabled={loading||!user||!senha} style={{width:"100%",background:T.accent,color:T.accentText,border:"none",borderRadius:8,padding:"12px",fontSize:14,fontWeight:700,fontFamily:"'DM Mono',monospace",cursor:"pointer",opacity:loading||!user||!senha?.6:1}}>{loading?"Entrando...":"Entrar"}</button>
+      </form>
+    </div>
+  );
+}
+
+/* ── RAIZ: só monta o app (e abre o Firestore) depois do login ── */
+function Root(){
+  const [u,setU]=useState(undefined); // undefined = verificando
+  useEffect(()=>auth.onAuthStateChanged(x=>setU(x||null)),[]);
+  if(u===undefined)return <div style={{background:THEMES.industrial.bg,minHeight:"100vh"}}/>;
+  return u?<App key={u.uid}/>:<Login/>;
+}
+
+export default Root;

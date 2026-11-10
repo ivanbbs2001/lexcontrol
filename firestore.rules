@@ -1,9 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only allow read/write on the configured workspace
+    // Só as duas contas do escritório (criadas manualmente no console) leem/gravam.
+    // Mesmo que alguém crie outra conta pela API pública, o e-mail não confere e o acesso é negado.
+    function autorizado() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'juliana@lexcontrol.app',
+          'ivan@lexcontrol.app'
+        ];
+    }
     match /workspaces/{workspaceId}/data/{document} {
-      allow read, write: if true; // Troque por autenticação quando necessário
+      allow read, write: if autorizado();
     }
   }
 }
