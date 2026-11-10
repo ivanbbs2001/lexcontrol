@@ -1328,7 +1328,8 @@ const LINKS_DATA=[
   {cat:"Previdência e INSS",items:[
     {label:"INSS — Meu INSS",url:"https://meu.inss.gov.br/",desc:"Portal de serviços do INSS"},
     {label:"CNIS — Consulta",url:"https://meu.inss.gov.br/",desc:"Cadastro Nacional de Informações Sociais"},
-    {label:"CJF — Justiça Federal",url:"https://www.cjf.jus.br/",desc:"Manual de Cálculos da Justiça Federal e tabelas da TNU (índices previdenciários)"},
+    {label:"CJF — Cálculo (SICOM)",url:"https://sicom.cjf.jus.br/sicomIndex.php",desc:"Sistema de cálculos do Conselho da Justiça Federal: atualização monetária e juros"},
+    {label:"CJF — Justiça Federal",url:"https://www.cjf.jus.br/",desc:"Manual de Cálculos da Justiça Federal e tabelas da TNU"},
   ]},
   {cat:"Intimações e Diários",items:[
     {label:"Domicílio Judicial Eletrônico",url:"https://domicilio-eletronico.pdpj.jus.br/",desc:"Citações e intimações eletrônicas (login gov.br)"},
