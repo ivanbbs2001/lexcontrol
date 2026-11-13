@@ -79,6 +79,12 @@ export function dadosCliente(f) {
   return `${nac}, ${civil}, ${prof}, ${fem ? "portadora" : "portador"} do RG nº. ${rg}, ${fem ? "inscrita" : "inscrito"} no CPF sob o nº. ${cpf}, ${fem ? "residente e domiciliada" : "residente e domiciliado"} na ${end}${cep}, na Cidade de ${cid} - ${uf}, telefone para contato ${f.telefone || BL}, e-mail ${f.email || BL}`;
 }
 
+export function dadosParceiro(p) {
+  if (!p) return `${BL}, ${BL}, inscrito(a) na OAB/PR ${BL}`;
+  const fem = p.sexo !== "M";
+  return `${fem ? "brasileira" : "brasileiro"}, ${flex(p.estadoCivil, fem) || BL}, ${fem ? "inscrita" : "inscrito"} na OAB/PR nº. ${p.oab || BL}`;
+}
+
 export function valoresDoModelo(modelo, f) {
   const nome = (f.nome || BL).trim();
   const v = {
@@ -88,6 +94,8 @@ export function valoresDoModelo(modelo, f) {
     PERC: percentual(f.perc),
     FIXO_TEXTO: fixoTexto(f),
     FIXO_EXTRAJ: f.fixoExtraj ? moeda(f.fixoExtraj) : `R$ ${BL} (${BL})`,
+    PARCEIRO_NOME: (f.parceiro?.nome || BL).toUpperCase(),
+    PARCEIRO_DADOS: dadosParceiro(f.parceiro),
   };
   return v;
 }

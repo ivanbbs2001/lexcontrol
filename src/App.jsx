@@ -4,7 +4,7 @@ import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
 import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
-import {FileSignature,FileCheck,CalendarPlus,Home,Zap,Globe,Smartphone,Laptop,UserRound,Calculator,Paperclip,Car,Pin,CreditCard,CircleDollarSign,Filter,FilterX,Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
+import {Handshake,FileSignature,FileCheck,CalendarPlus,Home,Zap,Globe,Smartphone,Laptop,UserRound,Calculator,Paperclip,Car,Pin,CreditCard,CircleDollarSign,Filter,FilterX,Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
 import {mensagemDoDia} from "./mensagens";
 import {MODELOS_CONTRATO,MODELOS_PROCURACAO,num} from "./docConfig";
@@ -149,7 +149,7 @@ const PhoneLink=({phone})=>{
 /* ═══════════════════════════════════════════════════════
    CONTRATO FORM
 ═══════════════════════════════════════════════════════ */
-function CForm({T,data,set,nA,sA,nS,sS}){
+function CForm({T,data,set,nA,sA,nS,sS,parceiros=[]}){
   function addA(){if(!nA.nome||!nA.pct)return;set(d=>({...d,coAdvogados:[...(d.coAdvogados||[]),{id:genId(),nome:nA.nome,percentual:nA.pct}]}));sA({nome:"",pct:""});}
   function remA(id){set(d=>({...d,coAdvogados:d.coAdvogados.filter(a=>a.id!==id)}));}
   function addS(){if(!nS.valor)return;set(d=>({...d,schedule:[...(d.schedule||[]),{id:genId(),...nS,valor:fmtN(nS.valor)}]}));sS({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
@@ -165,6 +165,7 @@ function CForm({T,data,set,nA,sA,nS,sS}){
         <Fld T={T} label="Telefone / WhatsApp" value={data.telefone||""} onChange={v=>set(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
         <Fld T={T} label="Nº do Processo" value={data.numeroProcesso||""} onChange={v=>set(d=>({...d,numeroProcesso:v}))} ph="0000000-00.0000.0.00.0000"/>
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Área de Atuação" value={data.areaAtuacao||"Cível"} onChange={v=>set(d=>({...d,areaAtuacao:v}))} options={AREAS}/></div>
+        <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Advogado(a) parceiro(a) — usado nos documentos de parceria" value={data.parceiroId||""} onChange={v=>set(d=>({...d,parceiroId:v}))} options={[{v:"",l:"— sem parceria —"},...parceiros.filter(p=>p.ativo!==false||p.id===data.parceiroId).map(p=>({v:p.id,l:p.nome}))]}/></div>
       </div>
       <SecTitle T={T}>Honorários</SecTitle>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
@@ -218,15 +219,79 @@ function CForm({T,data,set,nA,sA,nS,sS}){
 /* ═══════════════════════════════════════════════════════
    TAB CONTRATOS
 ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   PARCERIAS — advogados parceiros (alimentam os documentos de parceria)
+═══════════════════════════════════════════════════════ */
+const PARCEIROS_INICIAIS=()=>[{id:"parc-talita",nome:"Talita Mayer Bueno",sexo:"F",estadoCivil:"casado",oab:"63.702",telefone:"",email:"",observacoes:"Parceira principal",ativo:true}];
+const EMPTY_PARCEIRO=()=>({id:"parc-"+genId(),nome:"",sexo:"F",estadoCivil:"casado",oab:"",telefone:"",email:"",observacoes:"",ativo:true});
+function TabParcerias({T,parceiros,setParceiros,contracts}){
+  const [form,setForm]=useState(null);
+  const usos=id=>contracts.filter(c=>c.parceiroId===id).length;
+  function salvar(){
+    if(!form.nome.trim()){notify("Informe o nome.");return;}
+    setParceiros(p=>p.some(x=>x.id===form.id)?p.map(x=>x.id===form.id?form:x):[...p,form]);setForm(null);
+  }
+  async function remover(p){
+    const n=usos(p.id);
+    if(!await askConfirm(n?`${p.nome} está em ${n} contrato(s). Remover mesmo assim? (os contratos ficam sem parceiro)`:`Remover ${p.nome}?`))return;
+    setParceiros(l=>l.filter(x=>x.id!==p.id));
+  }
+  const u=k=>v=>setForm(f=>({...f,[k]:v}));
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:6}}>
+        <div><div style={{fontFamily:"var(--font-display)",fontSize:24,fontWeight:700,color:T.accent}}>Parcerias</div>
+          <div style={{fontSize:12,color:T.muted}}>Advogados parceiros. Ao gerar contrato ou procuração de parceria, os dados do parceiro escolhido entram no documento.</div></div>
+        <Btn T={T} onClick={()=>setForm(EMPTY_PARCEIRO())}><Plus size={15}/> Novo parceiro</Btn>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12,marginTop:14}}>
+        {parceiros.length===0&&<div style={{color:T.muted,fontSize:13,padding:20}}>Nenhum parceiro cadastrado.</div>}
+        {parceiros.map(p=>(
+          <div key={p.id} className="card-lift" style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 16px",opacity:p.ativo===false?.6:1,boxShadow:"var(--shadow-sm)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
+              <div><div style={{fontWeight:700,fontSize:15,color:T.text}}>{p.nome}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>OAB/PR {p.oab||"—"} · {p.sexo==="F"?"advogada":"advogado"}</div></div>
+              <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:p.ativo===false?T.card2:T.successBg,color:p.ativo===false?T.muted:T.successText}}>{p.ativo===false?"INATIVO":"ATIVO"}</span>
+            </div>
+            <div style={{fontSize:12,color:T.muted,marginTop:8,lineHeight:1.5}}>
+              {p.telefone&&<div><Phone size={12} style={{verticalAlign:-1}}/> {p.telefone}</div>}
+              {p.email&&<div><Mail size={12} style={{verticalAlign:-1}}/> {p.email}</div>}
+              {p.observacoes&&<div style={{marginTop:4}}>{p.observacoes}</div>}
+              <div style={{marginTop:4,color:T.infoText}}>{usos(p.id)} contrato(s) vinculado(s)</div>
+            </div>
+            <div style={{display:"flex",gap:6,marginTop:10}}>
+              <button className="bhov" onClick={()=>setForm({...p})} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 10px",fontSize:12,color:T.infoText}}>Editar</button>
+              <button className="bhov" onClick={()=>setParceiros(l=>l.map(x=>x.id===p.id?{...x,ativo:x.ativo===false}:x))} style={{background:T.card2,border:"none",borderRadius:5,padding:"5px 10px",fontSize:12,color:T.muted}}>{p.ativo===false?"Reativar":"Desativar"}</button>
+              <button className="bhov" onClick={()=>remover(p)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px"}}><Trash2 size={13}/></button>
+            </div>
+          </div>))}
+      </div>
+      {form&&<Modal T={T} title={parceiros.some(x=>x.id===form.id)?"Editar parceiro":"Novo parceiro"} onClose={()=>setForm(null)} width={560}
+        footer={<><Btn T={T} variant="ghost" onClick={()=>setForm(null)}>Cancelar</Btn><Btn T={T} onClick={salvar}>Salvar</Btn></>}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12}}>
+          <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Nome completo" value={form.nome} onChange={u("nome")}/></div>
+          <Fld T={T} label="Sexo (flexiona o texto)" value={form.sexo} onChange={u("sexo")} options={[{v:"F",l:"Feminino"},{v:"M",l:"Masculino"}]}/>
+          <Fld T={T} label="Estado civil" value={form.estadoCivil} onChange={u("estadoCivil")} options={CIVIS.map(c=>({v:c,l:c||"—"}))}/>
+          <Fld T={T} label="Nº OAB/PR" value={form.oab} onChange={u("oab")} ph="63.702"/>
+          <Fld T={T} label="Telefone" value={form.telefone} onChange={u("telefone")}/>
+          <div style={{gridColumn:"1/-1"}}><Fld T={T} label="E-mail" value={form.email} onChange={u("email")}/></div>
+          <div style={{gridColumn:"1/-1"}}><Fld T={T} type="textarea" label="Observações" value={form.observacoes} onChange={u("observacoes")}/></div>
+        </div>
+      </Modal>}
+    </div>);
+}
+
 /* ── Gerador de documentos Word (contratos, procurações, declaração de hipossuficiência) ── */
 const CIVIS=["","solteiro","casado","divorciado","viúvo","separado","em união estável"];
-function GeradorDoc({T,modo,contrato,clientesExtra,setClientesExtra,onClose}){
+function GeradorDoc({T,modo,contrato,clientesExtra,setClientesExtra,parceiros=[],onParceiro,onClose}){
   const nomeIni=contrato?.cliente||"";
   const ex=(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===nomeIni.trim().toLowerCase())||{};
   const hoje=new Date().toISOString().slice(0,10);
   const [modelo,setModelo]=useState(modo==="hipo"?{id:"declaracao-hipossuficiencia",nome:"Declaração de hipossuficiência"}:null);
   const [busy,setBusy]=useState(false);
   const [salvar,setSalvar]=useState(true);
+  const ativos=parceiros.filter(p=>p.ativo!==false);
+  const [parcId,setParcId]=useState(contrato?.parceiroId||ativos[0]?.id||"");
   const [f,setF]=useState({
     nome:nomeIni,sexo:ex.sexo||"M",nacionalidade:ex.nacionalidade||"",estadoCivil:ex.estadoCivil||"",profissao:ex.profissao||"",
     rg:ex.rg||"",cpf:ex.cpf||"",endereco:ex.endereco||"",cep:ex.cep||"",cidade:ex.cidade||"Cascavel",uf:"PR",
@@ -241,7 +306,8 @@ function GeradorDoc({T,modo,contrato,clientesExtra,setClientesExtra,onClose}){
     setBusy(true);
     try{
       const {baixarModelo}=await import("./docModelos");
-      await baixarModelo(modelo,f);
+      await baixarModelo(modelo,{...f,parceiro:parceiros.find(p=>p.id===parcId)||null});
+      if(modelo.grupo==="Parceria"&&parcId&&onParceiro)onParceiro(parcId);
       if(salvar){
         const dados={nome:f.nome.trim(),sexo:f.sexo,nacionalidade:f.nacionalidade,estadoCivil:f.estadoCivil,profissao:f.profissao,rg:f.rg,cpf:f.cpf,endereco:f.endereco,cep:f.cep,cidade:f.cidade,telefone:f.telefone,email:f.email};
         setClientesExtra(p=>{
@@ -266,6 +332,12 @@ function GeradorDoc({T,modo,contrato,clientesExtra,setClientesExtra,onClose}){
   return(
     <Modal T={T} title={tit} sub={modelo.nome} onClose={onClose} width={780}
       footer={<>{escolhas.length>0&&<Btn T={T} variant="ghost" onClick={()=>setModelo(null)}>Voltar</Btn>}<Btn T={T} onClick={gerar} disabled={busy}><FileText size={15}/> {busy?"Gerando...":"Gerar Word"}</Btn></>}>
+      {modelo.grupo==="Parceria"&&<>
+        {sec("Advogado(a) parceiro(a)")}
+        <div style={grid}><Fld T={T} label="Parceiro(a) deste documento" value={parcId} onChange={setParcId} options={[{v:"",l:"— em branco —"},...parceiros.filter(p=>p.ativo!==false||p.id===parcId).map(p=>({v:p.id,l:p.nome}))]}/></div>
+        {parceiros.find(p=>p.id===parcId)?.sexo==="M"&&<div style={{fontSize:11,color:T.warnText||T.muted,marginTop:6}}>Atenção: o modelo está no feminino plural (“CONTRATADAS”, “ambas”). Ajuste no Word se o parceiro for homem.</div>}
+        {parceiros.length===0&&<div style={{fontSize:11,color:T.muted,marginTop:6}}>Nenhum parceiro cadastrado. Cadastre na aba Parcerias.</div>}
+      </>}
       {sec("Cliente")}
       <div style={grid}>
         <Fld T={T} label="Nome completo" value={f.nome} onChange={u("nome")}/>
@@ -306,7 +378,7 @@ function GeradorDoc({T,modo,contrato,clientesExtra,setClientesExtra,onClose}){
     </Modal>);
 }
 
-function TabContratos({T,contracts,setContracts,clientesExtra,setClientesExtra}){
+function TabContratos({T,contracts,setContracts,clientesExtra,setClientesExtra,parceiros}){
   const [gerador,setGerador]=useState(null); // {modo,contrato}
   const [loading,setLoading]=useState(false);const [loadMsg,setLoadMsg]=useState("");const [error,setError]=useState("");
   const [drag,setDrag]=useState(false);const [modal,setModal]=useState(null);const [editMode,setEditMode]=useState(false);
@@ -369,11 +441,11 @@ function TabContratos({T,contracts,setContracts,clientesExtra,setClientesExtra})
         <Btn T={T} onClick={()=>setShowNew(true)} style={{whiteSpace:"nowrap",alignSelf:"center"}}>+ Cadastrar Manualmente</Btn>
       </div>
       {error&&<div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.dangerText,borderRadius:8,padding:"9px 14px",marginBottom:12,fontSize:12}}>{error}</div>}
-      {gerador&&<GeradorDoc T={T} modo={gerador.modo} contrato={gerador.contrato} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} onClose={()=>setGerador(null)}/>}
+      {gerador&&<GeradorDoc T={T} modo={gerador.modo} contrato={gerador.contrato} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} parceiros={parceiros} onParceiro={id=>gerador.contrato?.id&&setContracts(p=>p.map(c=>c.id===gerador.contrato.id?{...c,parceiroId:id}:c))} onClose={()=>setGerador(null)}/>}
       {showNew&&(
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
           <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>+ Novo Contrato / Processo</div>
-          <CForm T={T} data={nd} set={setNd} nA={nA2} sA={sA2} nS={nS2} sS={sS2}/>
+          <CForm T={T} data={nd} set={setNd} nA={nA2} sA={sA2} nS={nS2} sS={sS2} parceiros={parceiros}/>
           <div style={{display:"flex",gap:8,marginTop:14}}><Btn T={T} variant="secondary" onClick={()=>setShowNew(false)}>Cancelar</Btn><Btn T={T} onClick={saveNew}>Salvar</Btn></div>
         </div>
       )}
@@ -421,7 +493,7 @@ function TabContratos({T,contracts,setContracts,clientesExtra,setClientesExtra})
       {modal&&(
         <Modal T={T} title={modal.cliente||"Contrato"} sub={`${modal.areaAtuacao||""}${modal.numeroProcesso?" · "+modal.numeroProcesso:""}`} onClose={()=>setModal(null)}
           footer={editMode?<><Btn T={T} variant="secondary" onClick={()=>{setEditMode(false);setEditData({...modal});}}>Cancelar</Btn><Btn T={T} onClick={saveEdit}>Salvar</Btn></>:<><Btn T={T} variant="danger" onClick={()=>del(modal.id)}>Remover</Btn><Btn T={T} onClick={()=>setEditMode(true)}>Editar</Btn></>}>
-          {editMode?<CForm T={T} data={editData} set={setEditData} nA={nA} sA={sA} nS={nS} sS={sS}/>
+          {editMode?<CForm T={T} data={editData} set={setEditData} nA={nA} sA={sA} nS={nS} sS={sS} parceiros={parceiros}/>
           :<div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               {[["Área",<ABadge area={modal.areaAtuacao}/>],["Advogado",modal.advogado],["Cliente",modal.cliente],["Telefone",<PhoneLink phone={modal.telefone}/>],["Nº Processo",modal.numeroProcesso||"—"],["Valor Total",fmt(modal.valorTotal)],["Forma de Pgto",modal.formaPagamento||"—"],["Parcelas",modal.totalParcelas>1?`${modal.totalParcelas}× ${fmt(modal.valorParcela)}`:"À vista"],["Status",<span style={{display:"inline-flex",alignItems:"center",gap:6}}><StatusIcon status={modal.status}/>{STATUS_CFG[modal.status]?.label}</span>],["Cadastrado",modal.dataUpload]].map(([l,v])=>(
@@ -1309,7 +1381,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
 /* ═══════════════════════════════════════════════════════
    TAB CONFIGURAÇÕES — backup e exportação
 ═══════════════════════════════════════════════════════ */
-function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,audiencias,setContracts,setCosts,setManual,setClientesExtra,setContatos,setAudiencias}){
+function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,audiencias,parceiros,setParceiros,setContracts,setCosts,setManual,setClientesExtra,setContatos,setAudiencias}){
   const [msg,setMsg]=useState("");
   const [chave,setChave]=useState(getAntKey());
   const [backups,setBackups]=useState(null);
@@ -1317,7 +1389,7 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,audiencias,s
   async function restaurar(b){
     if(!await askConfirm(`Restaurar o backup automático de ${b.id.slice(7)}?\nIsso substituirá TODOS os dados atuais.`))return;
     const d=b.data;
-    setContracts(d.contracts||[]);setCosts(d.costs||[]);setManual(d.manual||[]);setClientesExtra(d.clientesExtra||[]);setContatos(d.contatos||{});setAudiencias(d.audiencias||[]);
+    setContracts(d.contracts||[]);setCosts(d.costs||[]);setManual(d.manual||[]);setClientesExtra(d.clientesExtra||[]);setContatos(d.contatos||{});setAudiencias(d.audiencias||[]);if(Array.isArray(d.parceiros))setParceiros(d.parceiros);
     setMsg("Backup restaurado! Os dados serão sincronizados.");setTimeout(()=>setMsg(""),4000);
   }
   function baixar(b){
@@ -1326,7 +1398,7 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,audiencias,s
   }
 
   function exportBackup(){
-    const data={contracts,costs,manual,clientesExtra,contatos,audiencias,exportedAt:new Date().toISOString()};
+    const data={contracts,costs,manual,clientesExtra,contatos,audiencias,parceiros,exportedAt:new Date().toISOString()};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);
     a.download=`lexcontrol-backup-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.json`;
@@ -1346,6 +1418,7 @@ function TabConfig({T,contracts,costs,manual,clientesExtra,contatos,audiencias,s
         if(Array.isArray(data.clientesExtra))setClientesExtra(data.clientesExtra);
         if(data.contatos&&typeof data.contatos==="object")setContatos(data.contatos);
         if(Array.isArray(data.audiencias))setAudiencias(data.audiencias);
+        if(Array.isArray(data.parceiros))setParceiros(data.parceiros);
         setMsg("Backup importado! Os dados serão sincronizados.");setTimeout(()=>setMsg(""),4000);
       }catch(err){setMsg("Erro: arquivo inválido — "+err.message);}
     };
@@ -2059,6 +2132,7 @@ function App(){
   const [clientesExtra,setClientesExtra] = useState([]);
   const [contatos,setContatos] = useState({});   // {nomeminusculo: ISO da última atualização enviada}
   const [audiencias,setAudiencias] = useState([]);
+  const [parceiros,setParceiros] = useState([]);
   const [calOpen,setCalOpen] = useState(false);
   const [buscaOpen,setBuscaOpen] = useState(false);
   const [ficha,setFicha] = useState(null);
@@ -2101,6 +2175,7 @@ function App(){
           if(Array.isArray(d.clientesExtra)) setClientesExtra(d.clientesExtra);
           if(d.contatos&&typeof d.contatos==="object") setContatos(d.contatos);
           if(Array.isArray(d.audiencias)) setAudiencias(d.audiencias);
+          if(Array.isArray(d.parceiros)) setParceiros(d.parceiros); else setParceiros(PARCEIROS_INICIAIS());
           if(d.theme)                     setThemeId(d.theme);
         }
         setFbLoaded(true);
@@ -2140,6 +2215,7 @@ function App(){
                          clientesExtra,
                          contatos,
                          audiencias,
+                         parceiros,
                          theme: themeId,
                          updatedAt: new Date().toISOString(),
                        });
@@ -2151,7 +2227,7 @@ function App(){
         setFbError(e.message || "Erro ao salvar");
       }
     }, 1500);
-  },[contracts, costs, manual, clientesExtra, contatos, audiencias, themeId, fbLoaded]);
+  },[contracts, costs, manual, clientesExtra, contatos, audiencias, parceiros, themeId, fbLoaded]);
   //                                    ^^^^^^^^^
   //  fbLoaded no array faz o primeiro save rodar logo
   //  após o carregamento — necessário para persistir
@@ -2163,7 +2239,7 @@ function App(){
     if(!fbLoaded||backupFeito.current)return;
     backupFeito.current=true;
     if(contracts.length+manual.length+costs.length+clientesExtra.length===0)return;
-    runAutoBackup(backupPayload({contracts,costs,manual,clientesExtra,contatos,audiencias})).catch(()=>{});
+    runAutoBackup(backupPayload({contracts,costs,manual,clientesExtra,contatos,audiencias,parceiros})).catch(()=>{});
   },[fbLoaded]);
 
   /* ── 5. Indicador visual (prompt §6) ──────────────── */
@@ -2199,6 +2275,7 @@ function App(){
     {id:"custos",label:"Custos",icon:Building2},
     {id:"clientes",label:"Clientes",icon:Users},
     {id:"audiencias",label:"Audiências",icon:Gavel},
+    {id:"parcerias",label:"Parcerias",icon:Handshake},
     {id:"relatorio",label:"Relatório",icon:BarChart3},
   ];
   const TABS_MAIN=[BASE_MAIN[0],...BASE_MAIN.slice(1).sort((a,b)=>{const ia=ordem.indexOf(a.id),ib=ordem.indexOf(b.id);return (ia<0?99:ia)-(ib<0?99:ib);})];
@@ -2282,13 +2359,14 @@ function App(){
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:14,marginBottom:14}}>{[0,1,2,3].map(i=><div key={i} className="skeleton" style={{height:96}}/>)}</div>
             <div className="skeleton" style={{height:240,marginBottom:14}}/><div className="skeleton" style={{height:160}}/></div>
           :tab==="inicio"       ?<TabInicio T={T} contracts={contracts} manual={manual} costs={costs} contatos={contatos} clientesExtra={clientesExtra} audiencias={audiencias} setTab={setTab}/>
+          :tab==="parcerias"    ?<TabParcerias T={T} parceiros={parceiros} setParceiros={setParceiros} contracts={contracts}/>
           :tab==="audiencias"   ?<TabAudiencias T={T} audiencias={audiencias} setAudiencias={setAudiencias} contracts={contracts} manual={manual} clientesExtra={clientesExtra}/>
-          :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra}/>
+          :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} parceiros={parceiros}/>
           :tab==="pagamentos"   ?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual}/>
           :tab==="custos"       ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
           :tab==="clientes"     ?<TabClientes T={T} contracts={contracts} manual={manual} setTab={setTab} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} contatos={contatos} marcarContato={marcarContato}/>
           :tab==="relatorio"    ?<TabRelatorio T={T} contracts={contracts} manual={manual} costs={costs}/>
-          :tab==="configuracoes"?<TabConfig T={T} contracts={contracts} costs={costs} manual={manual} clientesExtra={clientesExtra} contatos={contatos} audiencias={audiencias} setAudiencias={setAudiencias} setContracts={setContracts} setCosts={setCosts} setManual={setManual} setClientesExtra={setClientesExtra} setContatos={setContatos}/>
+          :tab==="configuracoes"?<TabConfig T={T} contracts={contracts} costs={costs} manual={manual} clientesExtra={clientesExtra} contatos={contatos} audiencias={audiencias} parceiros={parceiros} setParceiros={setParceiros} setAudiencias={setAudiencias} setContracts={setContracts} setCosts={setCosts} setManual={setManual} setClientesExtra={setClientesExtra} setContatos={setContatos}/>
           :<TabLinks T={T}/>
         }
       </div>
