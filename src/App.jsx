@@ -4,9 +4,10 @@ import Chart from "chart.js/auto";
 import mammoth from "mammoth/mammoth.browser";
 import {db,WS,auth,USUARIOS} from "./firebase";
 import {askConfirm,notify,DialogHost} from "./ui";
-import {CalendarPlus,Home,Zap,Globe,Smartphone,Laptop,UserRound,Calculator,Paperclip,Car,Pin,CreditCard,CircleDollarSign,Filter,FilterX,Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
+import {FileSignature,FileCheck,CalendarPlus,Home,Zap,Globe,Smartphone,Laptop,UserRound,Calculator,Paperclip,Car,Pin,CreditCard,CircleDollarSign,Filter,FilterX,Printer,CornerDownLeft,GripVertical,Gavel,CalendarDays,BellRing,Video,MapPin,Check,ChevronLeft,ChevronRight,Inbox,AlertTriangle,Scale,MessageSquare,Phone,Sparkles,Mail,LayoutDashboard,PanelLeftClose,PanelLeftOpen,AlertCircle,CalendarClock,TrendingUp,TrendingDown,Plus,ExternalLink,Users as UsersI,Briefcase,CheckCircle2,Hourglass,Banknote,FolderOpen,Calendar,Download as DownloadI,Undo2,FileText,Wallet,Building2,Users,BarChart3,Settings,Link2,Cloud,CloudOff,CloudUpload,Search,Pencil,Trash2,X,LogOut,MessageCircle,Save,ClipboardList,Clock3} from "lucide-react";
 import {getAntKey,setAntKey} from "./aiKey";
 import {mensagemDoDia} from "./mensagens";
+import {MODELOS_CONTRATO,MODELOS_PROCURACAO,num} from "./docConfig";
 import {runAutoBackup,listBackups,backupPayload} from "./backup";
 
 /* ═══════════════════════════════════════════════════════
@@ -217,7 +218,96 @@ function CForm({T,data,set,nA,sA,nS,sS}){
 /* ═══════════════════════════════════════════════════════
    TAB CONTRATOS
 ═══════════════════════════════════════════════════════ */
-function TabContratos({T,contracts,setContracts}){
+/* ── Gerador de documentos Word (contratos, procurações, declaração de hipossuficiência) ── */
+const CIVIS=["","solteiro","casado","divorciado","viúvo","separado","em união estável"];
+function GeradorDoc({T,modo,contrato,clientesExtra,setClientesExtra,onClose}){
+  const nomeIni=contrato?.cliente||"";
+  const ex=(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===nomeIni.trim().toLowerCase())||{};
+  const hoje=new Date().toISOString().slice(0,10);
+  const [modelo,setModelo]=useState(modo==="hipo"?{id:"declaracao-hipossuficiencia",nome:"Declaração de hipossuficiência"}:null);
+  const [busy,setBusy]=useState(false);
+  const [salvar,setSalvar]=useState(true);
+  const [f,setF]=useState({
+    nome:nomeIni,sexo:ex.sexo||"M",nacionalidade:ex.nacionalidade||"",estadoCivil:ex.estadoCivil||"",profissao:ex.profissao||"",
+    rg:ex.rg||"",cpf:ex.cpf||"",endereco:ex.endereco||"",cep:ex.cep||"",cidade:ex.cidade||"Cascavel",uf:"PR",
+    telefone:ex.telefone||contrato?.telefone||"",email:ex.email||"",data:hoje,
+    objeto:"",perc:"",valorTotal:contrato?.valorTotal||"",entrada:"",entradaData:"",nParcelas:contrato?.totalParcelas||1,valorParcela:"",primeiraData:"",pix:"45991141317",fixoExtraj:""});
+  const u=k=>v=>setF(p=>({...p,[k]:v}));
+  const tit=modo==="contrato"?"Gerar contrato (Word)":modo==="procuracao"?"Gerar procuração (Word)":"Declaração de hipossuficiência (Word)";
+  const honor=modelo?.honor;
+  const escolhas=modo==="contrato"?MODELOS_CONTRATO:modo==="procuracao"?MODELOS_PROCURACAO:[];
+  async function gerar(){
+    if(!f.nome.trim()){notify("Informe o nome do cliente.");return;}
+    setBusy(true);
+    try{
+      const {baixarModelo}=await import("./docModelos");
+      await baixarModelo(modelo,f);
+      if(salvar){
+        const dados={nome:f.nome.trim(),sexo:f.sexo,nacionalidade:f.nacionalidade,estadoCivil:f.estadoCivil,profissao:f.profissao,rg:f.rg,cpf:f.cpf,endereco:f.endereco,cep:f.cep,cidade:f.cidade,telefone:f.telefone,email:f.email};
+        setClientesExtra(p=>{
+          const i=p.findIndex(c=>c.nome.trim().toLowerCase()===dados.nome.toLowerCase());
+          const limpo=Object.fromEntries(Object.entries(dados).filter(([,v])=>v!==""&&v!=null));
+          if(i>=0)return p.map((c,j)=>j===i?{...c,...limpo}:c);
+          return [...p,{...EMPTY_CLIENTE(),...limpo}];
+        });
+      }
+      notify("Documento gerado (veja a pasta Downloads).");onClose();
+    }catch(e){notify("Não foi possível gerar o Word: "+(e.message||e));}finally{setBusy(false);}
+  }
+  const grid={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12};
+  const sec=t=><div style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:T.accent,margin:"16px 0 8px"}}>{t}</div>;
+  if(!modelo)return(
+    <Modal T={T} title={tit} sub="Escolha o modelo" onClose={onClose} width={560}>
+      <div style={{display:"grid",gap:10}}>
+        {escolhas.map(m=><button key={m.id} className="bhov" onClick={()=>setModelo(m)} style={{textAlign:"left",background:T.card2,border:`1px solid ${T.border}`,borderRadius:10,padding:"13px 16px",color:T.text,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",fontFamily:"var(--font-ui)",fontSize:14}}>
+          <span><b>{m.nome}</b></span><span style={{fontSize:11,color:T.muted}}>{m.grupo==="Parceria"?"Juliana + Talita":"Juliana"}</span></button>)}
+      </div>
+    </Modal>);
+  return(
+    <Modal T={T} title={tit} sub={modelo.nome} onClose={onClose} width={780}
+      footer={<>{escolhas.length>0&&<Btn T={T} variant="ghost" onClick={()=>setModelo(null)}>Voltar</Btn>}<Btn T={T} onClick={gerar} disabled={busy}><FileText size={15}/> {busy?"Gerando...":"Gerar Word"}</Btn></>}>
+      {sec("Cliente")}
+      <div style={grid}>
+        <Fld T={T} label="Nome completo" value={f.nome} onChange={u("nome")}/>
+        <Fld T={T} label="Sexo (flexiona o texto)" value={f.sexo} onChange={u("sexo")} options={[{v:"M",l:"Masculino"},{v:"F",l:"Feminino"}]}/>
+        <Fld T={T} label="Estado civil" value={f.estadoCivil} onChange={u("estadoCivil")} options={CIVIS.map(c=>({v:c,l:c||"—"}))}/>
+        <Fld T={T} label="Profissão" value={f.profissao} onChange={u("profissao")}/>
+        <Fld T={T} label="RG (com órgão)" value={f.rg} onChange={u("rg")} ph="9.999.999-9 SESP/PR"/>
+        <Fld T={T} label="CPF" value={f.cpf} onChange={u("cpf")}/>
+        <Fld T={T} label="Endereço (rua, nº, bairro)" value={f.endereco} onChange={u("endereco")} ph="Rua Exemplo, nº. 10, Bairro Centro"/>
+        <Fld T={T} label="CEP" value={f.cep} onChange={u("cep")}/>
+        <Fld T={T} label="Cidade" value={f.cidade} onChange={u("cidade")}/>
+        <Fld T={T} label="UF" value={f.uf} onChange={u("uf")}/>
+        <Fld T={T} label="Telefone" value={f.telefone} onChange={u("telefone")}/>
+        <Fld T={T} label="E-mail" value={f.email} onChange={u("email")}/>
+      </div>
+      {modo==="contrato"&&<>
+        {sec("Objeto")}
+        <Fld T={T} type="textarea" label="Objetivando... (complete a frase)" value={f.objeto} onChange={u("objeto")} ph="a propositura de ação de indenização por danos morais em face de ..."/>
+        {sec("Honorários")}
+        <div style={grid}>
+          {(honor==="perc"||honor==="misto")&&<Fld T={T} label="Percentual (%)" value={f.perc} onChange={u("perc")} ph={honor==="perc"?"30":"10"}/>}
+          {(honor==="fixo"||honor==="misto")&&<>
+            <Fld T={T} label="Valor fixo total (R$)" value={f.valorTotal} onChange={u("valorTotal")} ph="2000,00"/>
+            <Fld T={T} label="Entrada (R$) — opcional" value={f.entrada} onChange={u("entrada")}/>
+            {num(f.entrada)>0&&<Fld T={T} type="date" label="Vencimento da entrada" value={f.entradaData} onChange={u("entradaData")}/>}
+            <Fld T={T} type="number" label="Nº de parcelas" value={f.nParcelas} onChange={u("nParcelas")}/>
+            <Fld T={T} label="Valor da parcela (vazio = calcula)" value={f.valorParcela} onChange={u("valorParcela")}/>
+            <Fld T={T} type="date" label="1ª parcela (define o dia)" value={f.primeiraData} onChange={u("primeiraData")}/>
+            <Fld T={T} label="Chave PIX" value={f.pix} onChange={u("pix")}/>
+          </>}
+          {honor==="misto"&&<Fld T={T} label="Valor fixo se acordo extrajudicial (R$)" value={f.fixoExtraj} onChange={u("fixoExtraj")} ph="1000,00"/>}
+        </div>
+        <div style={{fontSize:11,color:T.muted,marginTop:8}}>Campos deixados em branco saem como ________ no Word, para preencher à mão.</div>
+      </>}
+      {sec("Documento")}
+      <div style={grid}><Fld T={T} type="date" label="Data do documento" value={f.data} onChange={u("data")}/></div>
+      <label style={{display:"flex",gap:8,alignItems:"center",fontSize:12,color:T.muted,marginTop:14,cursor:"pointer"}}><input type="checkbox" checked={salvar} onChange={e=>setSalvar(e.target.checked)}/> Salvar estes dados no cadastro do cliente (para a próxima vez)</label>
+    </Modal>);
+}
+
+function TabContratos({T,contracts,setContracts,clientesExtra,setClientesExtra}){
+  const [gerador,setGerador]=useState(null); // {modo,contrato}
   const [loading,setLoading]=useState(false);const [loadMsg,setLoadMsg]=useState("");const [error,setError]=useState("");
   const [drag,setDrag]=useState(false);const [modal,setModal]=useState(null);const [editMode,setEditMode]=useState(false);
   const [editData,setEditData]=useState({});const [nA,sA]=useState({nome:"",pct:""});
@@ -254,8 +344,7 @@ function TabContratos({T,contracts,setContracts}){
       setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:p.advogado||ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||""},...prev]);
     }catch(e){setError(e.message||"Erro.");}finally{setLoading(false);setLoadMsg("");}
   }
-  function saveNew(){if(!nd.cliente)return;const novo={...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")};setContracts(p=>[novo,...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});gerarWord(novo);}
-  async function gerarWord(c){try{const {baixarContratoDocx}=await import("./contratoDoc");await baixarContratoDocx(c);notify("Contrato em Word gerado (veja a pasta Downloads).");}catch(e){notify("Não foi possível gerar o Word: "+(e.message||e));}}
+  function saveNew(){if(!nd.cliente)return;const novo={...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")};setContracts(p=>[novo,...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});notify("Contrato cadastrado. Use os botões de documento na linha para gerar contrato, procuração ou declaração.");}
   function openM(c){setModal(c);setEditData({...c});setEditMode(false);sA({nome:"",pct:""});sS({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
   function saveEdit(){setContracts(p=>p.map(c=>c.id===editData.id?{...editData}:c));setModal({...editData});setEditMode(false);}
   function updSt(id,status){setContracts(p=>p.map(c=>c.id===id?{...c,status}:c));if(modal?.id===id)setModal(s=>({...s,status}));}
@@ -280,6 +369,7 @@ function TabContratos({T,contracts,setContracts}){
         <Btn T={T} onClick={()=>setShowNew(true)} style={{whiteSpace:"nowrap",alignSelf:"center"}}>+ Cadastrar Manualmente</Btn>
       </div>
       {error&&<div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.dangerText,borderRadius:8,padding:"9px 14px",marginBottom:12,fontSize:12}}>{error}</div>}
+      {gerador&&<GeradorDoc T={T} modo={gerador.modo} contrato={gerador.contrato} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} onClose={()=>setGerador(null)}/>}
       {showNew&&(
         <div style={{background:T.card,border:`1px solid ${T.border2}`,borderRadius:12,padding:18,marginBottom:16}}>
           <div style={{fontSize:13,color:T.accent,fontWeight:600,marginBottom:14}}>+ Novo Contrato / Processo</div>
@@ -317,7 +407,9 @@ function TabContratos({T,contracts,setContracts}){
                   <td style={{padding:"10px 12px",whiteSpace:"nowrap"}}><StatusIcon status={c.status} size={15}/> <select value={c.status} onChange={e=>updSt(c.id,e.target.value)} style={{background:T.card2,color:st.color,border:`1px solid ${st.color}55`,borderRadius:6,padding:"3px 8px",fontSize:11,fontFamily:"var(--font-ui)",cursor:"pointer",appearance:"none"}}>{Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></td>
                   <td style={{padding:"10px 12px",color:T.muted,fontSize:11,whiteSpace:"nowrap"}}>{c.dataUpload}</td>
                   <td style={{padding:"10px 12px"}}><div style={{display:"flex",gap:5}}>
-                    <button className="bhov" title="Gerar contrato em Word" onClick={()=>gerarWord(c)} style={{background:T.successBg||T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><FileText size={14}/></button>
+                    <button className="bhov" title="Gerar contrato (Word)" onClick={()=>setGerador({modo:"contrato",contrato:c})} style={{background:T.successBg||T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><FileText size={14}/></button>
+                    <button className="bhov" title="Gerar procuração (Word)" onClick={()=>setGerador({modo:"procuracao",contrato:c})} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><FileSignature size={14}/></button>
+                    <button className="bhov" title="Declaração de hipossuficiência (Word)" onClick={()=>setGerador({modo:"hipo",contrato:c})} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><FileCheck size={14}/></button>
                     <button className="bhov" onClick={()=>openM(c)} style={{background:T.infoBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><Search size={14}/></button>
                     <button className="bhov" onClick={()=>del(c.id)} style={{background:T.dangerBg,border:"none",borderRadius:5,padding:"5px 9px",fontSize:13}}><Trash2 size={14}/></button>
                   </div></td>
@@ -2191,7 +2283,7 @@ function App(){
             <div className="skeleton" style={{height:240,marginBottom:14}}/><div className="skeleton" style={{height:160}}/></div>
           :tab==="inicio"       ?<TabInicio T={T} contracts={contracts} manual={manual} costs={costs} contatos={contatos} clientesExtra={clientesExtra} audiencias={audiencias} setTab={setTab}/>
           :tab==="audiencias"   ?<TabAudiencias T={T} audiencias={audiencias} setAudiencias={setAudiencias} contracts={contracts} manual={manual} clientesExtra={clientesExtra}/>
-          :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts}/>
+          :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra}/>
           :tab==="pagamentos"   ?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual}/>
           :tab==="custos"       ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
           :tab==="clientes"     ?<TabClientes T={T} contracts={contracts} manual={manual} setTab={setTab} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} contatos={contatos} marcarContato={marcarContato}/>
