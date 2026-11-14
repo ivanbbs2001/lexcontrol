@@ -513,10 +513,112 @@ function TabContratos({T,contracts,setContracts,clientesExtra,setClientesExtra,p
 /* ═══════════════════════════════════════════════════════
    TAB PAGAMENTOS — redesigned
 ═══════════════════════════════════════════════════════ */
-function TabPagamentos({T,contracts,setContracts,manual,setManual}){
+const fmtDt=iso=>iso?iso.split("-").reverse().join("/"):"";
+const toISO0=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
+function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,setMes,ano,setAno,onLista}){
+  const now=new Date();const cur=now.getFullYear()*12+now.getMonth()+1;
+  const [soDebito,setSoDebito]=useState(false);
+  const nomeParc=c=>{const p=(parceiros||[]).find(x=>x.id===c.parceiroId);const n=[];if(p?.nome)n.push(p.nome);(c.coAdvogados||[]).forEach(a=>{if(a.nome&&!n.includes(a.nome))n.push(a.nome);});return n.join(", ");};
+  const percC=c=>(c.coAdvogados||[]).reduce((s,a)=>s+fmtN(a.percentual),0);
+  const rows=[
+    ...contracts.flatMap(c=>(c.schedule||[]).map(s=>({k:"s"+s.id,t:"s",cid:c.id,id:s.id,mes:s.mes,ano:s.ano,dia:s.dia,cliente:c.cliente,parc:nomeParc(c),valor:fmtN(s.valor),perc:percC(c),pago:!!s.pago,dp:s.dataPgto,desc:s.descricao}))),
+    ...manual.map(p=>({k:"m"+p.id,t:"m",id:p.id,mes:p.mes,ano:p.ano,dia:p.dia,cliente:p.cliente,parc:p.temParceria?(p.coAdvogado||""):"",valor:fmtN(p.valor),perc:p.temParceria?fmtN(p.percCoAdv):0,pago:!!p.pago,dp:p.dataPgto,desc:p.descricao}))
+  ];
+  const ym=r=>r.ano*12+r.mes;
+  const ord=(a,b)=>ym(a)-ym(b)||(a.dia||99)-(b.dia||99)||a.cliente.localeCompare(b.cliente);
+  const doMes=rows.filter(r=>r.mes===mes&&r.ano===ano).sort(ord);
+  const vis=soDebito?doMes.filter(r=>!r.pago):doMes;
+  const atras=rows.filter(r=>!r.pago&&ym(r)<cur).sort(ord);
+  const sum=l=>l.reduce((s,r)=>s+r.valor,0);
+  const juli=r=>r.valor*(100-r.perc)/100;
+  function tog(r){
+    const f=x=>({...x,pago:!x.pago,dataPgto:!x.pago?toISO0():""});
+    if(r.t==="s")setContracts(p=>p.map(c=>c.id===r.cid?{...c,schedule:c.schedule.map(s=>s.id===r.id?f(s):s)}:c));
+    else setManual(p=>p.map(x=>x.id===r.id?f(x):x));
+  }
+  function setDia(r,v){
+    const d=Math.max(0,Math.min(31,parseInt(v)||0))||undefined;
+    if(r.t==="s")setContracts(p=>p.map(c=>c.id===r.cid?{...c,schedule:c.schedule.map(s=>s.id===r.id?{...s,dia:d}:s)}:c));
+    else setManual(p=>p.map(x=>x.id===r.id?{...x,dia:d}:x));
+  }
+  function setDp(r,v){
+    if(r.t==="s")setContracts(p=>p.map(c=>c.id===r.cid?{...c,schedule:c.schedule.map(s=>s.id===r.id?{...s,dataPgto:v}:s)}:c));
+    else setManual(p=>p.map(x=>x.id===r.id?{...x,dataPgto:v}:x));
+  }
+  const mm=Array.from({length:12},(_,i)=>{const l=rows.filter(r=>r.ano===ano&&r.mes===i+1);return{e:sum(l),r:sum(l.filter(x=>x.pago))};});
+  const maxM=Math.max(1,...mm.map(x=>x.e));
+  const nav=(d)=>{let m=mes+d,a=ano;if(m<1){m=12;a--;}if(m>12){m=1;a++;}setMes(m);setAno(a);};
+  const nb={background:T.card2,border:"none",fontSize:20,cursor:"pointer",color:T.accent,padding:"2px 10px",lineHeight:1,borderRadius:6,fontWeight:700};
+  const th={textAlign:"left",fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",padding:"8px 10px",borderBottom:`1px solid ${T.border2}`,whiteSpace:"nowrap"};
+  const td={padding:"8px 10px",fontSize:13,color:T.text,borderBottom:`1px solid ${T.border}`,verticalAlign:"middle"};
+  const Tabela=({list,atraso})=>(
+    <div style={{overflowX:"auto",background:T.card,border:`1px solid ${T.border}`,borderRadius:12}}>
+      <table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
+        <thead><tr><th style={th}>Vencimento</th><th style={th}>Cliente</th><th style={th}>Parceria</th><th style={{...th,textAlign:"right"}}>Valor da parcela</th><th style={{...th,textAlign:"right"}}>Juliana</th><th style={th}>Data do pagamento</th><th style={th}></th></tr></thead>
+        <tbody>
+          {list.length===0&&<tr><td colSpan={7} style={{...td,textAlign:"center",color:T.muted,padding:24}}>{atraso?"Nenhuma parcela em atraso.":"Nenhum lançamento neste mês."}</td></tr>}
+          {list.map(r=>(
+            <tr key={r.k} style={{background:r.pago?T.successBg+"55":"transparent"}}>
+              <td style={{...td,whiteSpace:"nowrap"}}>
+                <input type="number" min="1" max="31" value={r.dia||""} placeholder="dd" onChange={e=>setDia(r,e.target.value)} style={{width:38,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 4px",color:T.text,fontSize:12,textAlign:"center"}}/>
+                <span style={{color:T.muted}}>/{String(r.mes).padStart(2,"0")}/{r.ano}</span>
+              </td>
+              <td style={td}>{r.cliente}{r.desc&&<div style={{fontSize:11,color:T.muted}}>{r.desc}</div>}</td>
+              <td style={{...td,color:T.infoText}}>{r.parc||<span style={{color:T.muted}}>—</span>}</td>
+              <td style={{...td,textAlign:"right",fontWeight:600}}>{fmt(r.valor)}</td>
+              <td style={{...td,textAlign:"right",color:T.successText,fontWeight:600}}>{fmt(juli(r))}</td>
+              <td style={td}>{r.pago?<input type="date" value={r.dp||""} onChange={e=>setDp(r,e.target.value)} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 6px",color:T.text,fontSize:12}}/>:<span style={{color:atraso?T.warnText:T.muted,fontSize:12}}>{atraso?"em atraso":"pendente"}</span>}</td>
+              <td style={td}><button className="bhov" onClick={()=>tog(r)} style={{background:r.pago?T.successBg:T.card2,color:r.pago?T.successText:T.accent,border:`1px solid ${T.border2}`,borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{r.pago?"✓ Pago":"Dar baixa"}</button></td>
+            </tr>
+          ))}
+        </tbody>
+        {list.length>0&&<tfoot><tr><td colSpan={3} style={{...td,fontWeight:700}}>Total</td><td style={{...td,textAlign:"right",fontWeight:700}}>{fmt(sum(list))}</td><td style={{...td,textAlign:"right",fontWeight:700,color:T.successText}}>{fmt(list.reduce((s,r)=>s+juli(r),0))}</td><td colSpan={2} style={td}></td></tr></tfoot>}
+      </table>
+    </div>
+  );
+  const rec=sum(doMes.filter(r=>r.pago)),pend=sum(doMes)-rec;
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,background:T.card,border:`1px solid ${T.border2}`,borderRadius:10,padding:"4px 8px"}}>
+          <button className="bhov" onClick={()=>nav(-1)} style={nb}>‹</button>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:T.strong,minWidth:130,textAlign:"center"}}>{MFL[mes-1]} {ano}</span>
+          <button className="bhov" onClick={()=>nav(1)} style={nb}>›</button>
+        </div>
+        <Btn T={T} variant="secondary" onClick={()=>{setMes(now.getMonth()+1);setAno(now.getFullYear());}}>Hoje</Btn>
+        <label style={{display:"flex",gap:6,alignItems:"center",fontSize:12,color:T.text,cursor:"pointer"}}><input type="checkbox" checked={soDebito} onChange={e=>setSoDebito(e.target.checked)} style={{accentColor:T.accent}}/>Só em débito</label>
+        <div style={{flex:1}}/>
+        <Btn T={T} variant="secondary" onClick={onLista}>Ver lista / novo pagamento</Btn>
+      </div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
+        {[["A receber no mês",sum(doMes),T.accent],["Recebido",rec,T.successText],["Em débito no mês",pend,T.warnText],["Atrasados (meses anteriores)",sum(atras),"#dc2626"]].map(([l,v,c])=>(
+          <div key={l} style={{flex:"1 1 150px",background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 16px"}}>
+            <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{l}</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:c}}>{fmt(v)}</div>
+          </div>))}
+      </div>
+      <Tabela list={vis}/>
+      <div style={{margin:"22px 0 8px",background:T.card2,borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,letterSpacing:"0.1em",color:T.muted,textAlign:"center"}}>ATRASADOS</div>
+      <Tabela list={atras} atraso/>
+      <div style={{margin:"22px 0 8px",fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Fluxo de entrada · {ano} (clique no mês)</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(72px,1fr))",gap:8}}>
+        {mm.map((x,i)=>(
+          <button key={i} className="bhov" onClick={()=>setMes(i+1)} style={{background:i+1===mes?T.accent+"22":T.card,border:`1px solid ${i+1===mes?T.accent:T.border}`,borderRadius:10,padding:"8px 6px",cursor:"pointer",textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{fontSize:11,color:T.muted}}>{MFS[i]}</div>
+            <div style={{height:44,display:"flex",alignItems:"flex-end",justifyContent:"center",margin:"6px 0"}}>
+              <div style={{width:22,height:`${Math.round(x.e/maxM*100)}%`,minHeight:x.e?3:0,background:T.border2,borderRadius:3,position:"relative",overflow:"hidden"}}><div style={{position:"absolute",bottom:0,left:0,right:0,height:`${x.e?x.r/x.e*100:0}%`,background:T.accent}}/></div>
+            </div>
+            <div style={{fontSize:11,color:T.strong,fontWeight:600}}>{fmt(x.e)}</div>
+          </button>))}
+      </div>
+    </div>
+  );
+}
+function TabPagamentos({T,contracts,setContracts,manual,setManual,parceiros}){
   const now=new Date();
   const [mes,setMes]=useState(now.getMonth()+1);const [ano,setAno]=useState(now.getFullYear());
   const [showForm,setShowForm]=useState(false);const [form,setForm]=useState(newP());const [editId,setEditId]=useState(null);
+  const [view,setView]=useState("planilha");
   const years=Array.from({length:6},(_,i)=>now.getFullYear()-2+i);
 
   const schedE=contracts.flatMap(c=>(c.schedule||[]).filter(s=>s.mes===mes&&s.ano===ano).map(s=>({...s,_t:"s",contrato:c})));
@@ -541,6 +643,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
   // Group by area for summary
   const byArea={};all.forEach(e=>{const a=e._t==="s"?e.contrato.areaAtuacao:e.areaAtuacao;if(!byArea[a])byArea[a]={total:0,recebido:0};byArea[a].total+=fmtN(e.valor);if(e.pago)byArea[a].recebido+=fmtN(e.valor);});
 
+  if(view==="planilha")return <PlanilhaPag T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual} parceiros={parceiros} mes={mes} setMes={setMes} ano={ano} setAno={setAno} onLista={()=>setView("lista")}/>;
   return(
     <div>
       {/* header */}
@@ -555,6 +658,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual}){
           <button className="bhov nav-arrow" onClick={()=>setAno(a=>a+1)} style={{background:T.card2,border:"none",fontSize:16,cursor:"pointer",color:T.accent,padding:"2px 8px",lineHeight:1,borderRadius:6,fontWeight:700}}>›</button>
         </div>
         <div style={{flex:1}}/>
+        <Btn T={T} variant="secondary" onClick={()=>setView("planilha")}>Ver planilha</Btn>
         <Btn T={T} onClick={()=>{setEditId(null);setForm({...newP(),mes,ano});setShowForm(true);}}>+ Novo Pagamento</Btn>
       </div>
 
@@ -2362,7 +2466,7 @@ function App(){
           :tab==="parcerias"    ?<TabParcerias T={T} parceiros={parceiros} setParceiros={setParceiros} contracts={contracts}/>
           :tab==="audiencias"   ?<TabAudiencias T={T} audiencias={audiencias} setAudiencias={setAudiencias} contracts={contracts} manual={manual} clientesExtra={clientesExtra}/>
           :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} parceiros={parceiros}/>
-          :tab==="pagamentos"   ?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual}/>
+          :tab==="pagamentos"   ?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual} parceiros={parceiros}/>
           :tab==="custos"       ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
           :tab==="clientes"     ?<TabClientes T={T} contracts={contracts} manual={manual} setTab={setTab} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} contatos={contatos} marcarContato={marcarContato}/>
           :tab==="relatorio"    ?<TabRelatorio T={T} contracts={contracts} manual={manual} costs={costs}/>
