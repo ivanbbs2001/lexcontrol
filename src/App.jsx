@@ -521,8 +521,8 @@ function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,se
   const nomeParc=c=>{const p=(parceiros||[]).find(x=>x.id===c.parceiroId);const n=[];if(p?.nome)n.push(p.nome);(c.coAdvogados||[]).forEach(a=>{if(a.nome&&!n.includes(a.nome))n.push(a.nome);});return n.join(", ");};
   const percC=c=>(c.coAdvogados||[]).reduce((s,a)=>s+fmtN(a.percentual),0);
   const rows=[
-    ...contracts.flatMap(c=>(c.schedule||[]).map(s=>({k:"s"+s.id,t:"s",cid:c.id,id:s.id,mes:s.mes,ano:s.ano,dia:s.dia,cliente:c.cliente,parc:nomeParc(c),valor:fmtN(s.valor),perc:percC(c),pago:!!s.pago,dp:s.dataPgto,desc:s.descricao}))),
-    ...manual.map(p=>({k:"m"+p.id,t:"m",id:p.id,mes:p.mes,ano:p.ano,dia:p.dia,cliente:p.cliente,parc:p.temParceria?(p.coAdvogado||""):"",valor:fmtN(p.valor),perc:p.temParceria?fmtN(p.percCoAdv):0,pago:!!p.pago,dp:p.dataPgto,desc:p.descricao}))
+    ...contracts.flatMap(c=>(c.schedule||[]).map(s=>({k:"s"+s.id,t:"s",cid:c.id,id:s.id,mes:s.mes,ano:s.ano,dia:s.dia,cliente:c.cliente,tel:c.telefone,parc:nomeParc(c),valor:fmtN(s.valor),perc:percC(c),pago:!!s.pago,dp:s.dataPgto,desc:s.descricao}))),
+    ...manual.map(p=>({k:"m"+p.id,t:"m",id:p.id,mes:p.mes,ano:p.ano,dia:p.dia,cliente:p.cliente,tel:p.telefone,parc:p.temParceria?(p.coAdvogado||""):"",valor:fmtN(p.valor),perc:p.temParceria?fmtN(p.percCoAdv):0,pago:!!p.pago,dp:p.dataPgto,desc:p.descricao}))
   ];
   const ym=r=>r.ano*12+r.mes;
   const ord=(a,b)=>ym(a)-ym(b)||(a.dia||99)-(b.dia||99)||a.cliente.localeCompare(b.cliente);
@@ -531,6 +531,18 @@ function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,se
   const atras=rows.filter(r=>!r.pago&&ym(r)<cur).sort(ord);
   const sum=l=>l.reduce((s,r)=>s+r.valor,0);
   const juli=r=>r.valor*(100-r.perc)/100;
+  const hoje0=new Date();hoje0.setHours(0,0,0,0);
+  const diasPara=r=>r.dia?Math.round((new Date(r.ano,r.mes-1,r.dia)-hoje0)/864e5):null;
+  function avisar(r){
+    const d=diasPara(r);const nome=(r.cliente||"").trim().split(/\s+/)[0];
+    const dt=r.dia?`${String(r.dia).padStart(2,"0")}/${String(r.mes).padStart(2,"0")}/${r.ano}`:`${MFL[r.mes-1]}/${r.ano}`;
+    const ref=r.desc?` referente a ${r.desc}`:" de honorários";
+    const msg=d!==null&&d<0||(!r.dia&&r.ano*12+r.mes<cur)
+      ?`Olá, ${nome}! Aqui é do escritório Juliana Savi Advocacia. Consta em aberto o valor de ${fmt(r.valor)}${ref}, com vencimento em ${dt}. Poderia nos informar a previsão de pagamento? Qualquer dúvida, estamos à disposição.`
+      :`Olá, ${nome}! Aqui é do escritório Juliana Savi Advocacia. Lembramos que o valor de ${fmt(r.valor)}${ref} vence em ${dt}. Qualquer dúvida, estamos à disposição.`;
+    const dg=String(r.tel||"").replace(/\D/g,"");if(!dg){notify("Cliente sem telefone cadastrado.");return;}
+    window.open(`https://wa.me/${dg.length<=11?"55"+dg:dg}?text=${encodeURIComponent(msg)}`,"_blank");
+  }
   function tog(r){
     const f=x=>({...x,pago:!x.pago,dataPgto:!x.pago?toISO0():""});
     if(r.t==="s")setContracts(p=>p.map(c=>c.id===r.cid?{...c,schedule:c.schedule.map(s=>s.id===r.id?f(s):s)}:c));
@@ -562,13 +574,14 @@ function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,se
               <td style={{...td,whiteSpace:"nowrap"}}>
                 <input type="number" min="1" max="31" value={r.dia||""} placeholder="dd" onChange={e=>setDia(r,e.target.value)} style={{width:38,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 4px",color:T.text,fontSize:12,textAlign:"center"}}/>
                 <span style={{color:T.muted}}>/{String(r.mes).padStart(2,"0")}/{r.ano}</span>
+                {!r.pago&&(()=>{const d=diasPara(r);return d!==null&&d>=0&&d<=7?<span title={d===0?"Vence hoje":`Vence em ${d} dia${d>1?"s":""}`} style={{marginLeft:6,color:T.warnText,display:"inline-flex",verticalAlign:"middle",alignItems:"center",gap:2,fontSize:11,fontWeight:700}}><BellRing size={14}/>{d===0?"hoje":d+"d"}</span>:null;})()}
               </td>
               <td style={td}>{r.cliente}{r.desc&&<div style={{fontSize:11,color:T.muted}}>{r.desc}</div>}</td>
               <td style={{...td,color:T.infoText}}>{r.parc||<span style={{color:T.muted}}>—</span>}</td>
               <td style={{...td,textAlign:"right",fontWeight:600}}>{fmt(r.valor)}</td>
               <td style={{...td,textAlign:"right",color:T.successText,fontWeight:600}}>{fmt(juli(r))}</td>
               <td style={td}>{r.pago?<input type="date" value={r.dp||""} onChange={e=>setDp(r,e.target.value)} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 6px",color:T.text,fontSize:12}}/>:<span style={{color:atraso?T.warnText:T.muted,fontSize:12}}>{atraso?"em atraso":"pendente"}</span>}</td>
-              <td style={td}><button className="bhov" onClick={()=>tog(r)} style={{background:r.pago?T.successBg:T.card2,color:r.pago?T.successText:T.accent,border:`1px solid ${T.border2}`,borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{r.pago?"✓ Pago":"Dar baixa"}</button></td>
+              <td style={{...td,whiteSpace:"nowrap"}}>{!r.pago&&<button className="bhov" title="Avisar o cliente pelo WhatsApp" onClick={()=>avisar(r)} style={{background:"#22c55e22",border:"1px solid #22c55e44",borderRadius:6,padding:"4px 8px",color:"#16a34a",cursor:"pointer",marginRight:6,verticalAlign:"middle"}}><MessageCircle size={14}/></button>}<button className="bhov" onClick={()=>tog(r)} style={{background:r.pago?T.successBg:T.card2,color:r.pago?T.successText:T.accent,border:`1px solid ${T.border2}`,borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{r.pago?"✓ Pago":"Dar baixa"}</button></td>
             </tr>
           ))}
         </tbody>
