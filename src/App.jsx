@@ -155,6 +155,17 @@ function CForm({T,data,set,nA,sA,nS,sS,parceiros=[]}){
   function addS(){if(!nS.valor)return;set(d=>({...d,schedule:[...(d.schedule||[]),{id:genId(),...nS,valor:fmtN(nS.valor)}]}));sS({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
   function togS(sid){set(d=>({...d,schedule:d.schedule.map(s=>s.id===sid?{...s,pago:!s.pago}:s)}));}
   function remS(sid){set(d=>({...d,schedule:d.schedule.filter(s=>s.id!==sid)}));}
+  const [gen,setGen]=useState({n:"",valor:"",data:""});
+  async function gerarS(){
+    const n=parseInt(gen.n||data.totalParcelas)||0;
+    const v=fmtN(gen.valor)||fmtN(data.valorParcela)||(n?Math.round(fmtN(data.valorTotal)/n*100)/100:0);
+    if(!n||n>120||!v||!gen.data){notify("Informe o número de parcelas, o valor e a data da primeira parcela.");return;}
+    const ja=(data.schedule||[]).length;
+    if(ja&&!await askConfirm(`Este contrato já tem ${ja} parcela${ja>1?"s":""} no cronograma. Adicionar mais ${n}?`))return;
+    const [y,m,dd]=gen.data.split("-").map(Number);
+    const novas=Array.from({length:n},(_,i)=>{const t=m-1+i,ano=y+Math.floor(t/12),mes=t%12+1;return{id:genId(),mes,ano,dia:Math.min(dd,new Date(ano,mes,0).getDate()),valor:v,descricao:`Parcela ${i+1}/${n}`,pago:false};});
+    set(d=>({...d,schedule:[...(d.schedule||[]),...novas]}));setGen({n:"",valor:"",data:""});
+  }
   const coSum=(data.coAdvogados||[]).reduce((s,a)=>s+fmtN(a.percentual),0);
   return(
     <div>
@@ -198,7 +209,7 @@ function CForm({T,data,set,nA,sA,nS,sS,parceiros=[]}){
       {(data.schedule||[]).map(s=>(
         <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,background:s.pago?T.successBg:T.card2,borderRadius:7,padding:"7px 10px"}}>
           <input type="checkbox" checked={s.pago} onChange={()=>togS(s.id)} style={{cursor:"pointer"}}/>
-          <span style={{color:T.muted,fontSize:11,minWidth:52}}>{MFS[s.mes-1]}/{s.ano}</span>
+          <span style={{color:T.muted,fontSize:11,minWidth:68}}>{s.dia?String(s.dia).padStart(2,"0")+"/":""}{MFS[s.mes-1]}/{s.ano}</span>
           <span style={{color:T.accent,fontWeight:600}}>{fmt(s.valor)}</span>
           <span style={{flex:1,color:T.muted,fontSize:11}}>{s.descricao}</span>
           <span style={{fontSize:11,color:s.pago?T.successText:T.warnText}}>{s.pago?<CheckCircle2 size={13}/>:<Hourglass size={13}/>}</span>
@@ -211,6 +222,16 @@ function CForm({T,data,set,nA,sA,nS,sS,parceiros=[]}){
         <input placeholder="R$" value={nS.valor} onChange={e=>sS(d=>({...d,valor:e.target.value}))} style={{width:100,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
         <input placeholder="Descrição (Parcela 1/3…)" value={nS.descricao} onChange={e=>sS(d=>({...d,descricao:e.target.value}))} style={{flex:1,minWidth:140,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
         <Btn T={T} variant="ghost" onClick={addS}>+ Parcela</Btn>
+      </div>
+      <div style={{marginTop:10,background:T.card2,border:`1px dashed ${T.border2}`,borderRadius:8,padding:"10px 12px"}}>
+        <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Gerar parcelas automaticamente</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <input type="number" min="1" placeholder={"Nº parcelas"+(data.totalParcelas>1?` (${data.totalParcelas})`:"")} value={gen.n} onChange={e=>setGen(g=>({...g,n:e.target.value}))} style={{width:130,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
+          <input placeholder={"Valor de cada"+(data.valorParcela?` (${data.valorParcela})`:"")} value={gen.valor} onChange={e=>setGen(g=>({...g,valor:e.target.value}))} style={{width:150,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
+          <label style={{fontSize:11,color:T.muted}}>1º vencimento</label>
+          <input type="date" value={gen.data} onChange={e=>setGen(g=>({...g,data:e.target.value}))} style={{width:150,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:6,padding:"6px 10px",color:T.text,fontFamily:"var(--font-ui)",fontSize:12}}/>
+          <Btn T={T} variant="secondary" onClick={gerarS}>Gerar parcelas</Btn>
+        </div>
       </div>
     </div>
   );
@@ -521,8 +542,8 @@ function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,se
   const nomeParc=c=>{const p=(parceiros||[]).find(x=>x.id===c.parceiroId);const n=[];if(p?.nome)n.push(p.nome);(c.coAdvogados||[]).forEach(a=>{if(a.nome&&!n.includes(a.nome))n.push(a.nome);});return n.join(", ");};
   const percC=c=>(c.coAdvogados||[]).reduce((s,a)=>s+fmtN(a.percentual),0);
   const rows=[
-    ...contracts.flatMap(c=>(c.schedule||[]).map(s=>({k:"s"+s.id,t:"s",cid:c.id,id:s.id,mes:s.mes,ano:s.ano,dia:s.dia,cliente:c.cliente,tel:c.telefone,parc:nomeParc(c),valor:fmtN(s.valor),perc:percC(c),pago:!!s.pago,dp:s.dataPgto,desc:s.descricao}))),
-    ...manual.map(p=>({k:"m"+p.id,t:"m",id:p.id,mes:p.mes,ano:p.ano,dia:p.dia,cliente:p.cliente,tel:p.telefone,parc:p.temParceria?(p.coAdvogado||""):"",valor:fmtN(p.valor),perc:p.temParceria?fmtN(p.percCoAdv):0,pago:!!p.pago,dp:p.dataPgto,desc:p.descricao}))
+    ...contracts.flatMap(c=>(c.schedule||[]).map(s=>({k:"s"+s.id,t:"s",cid:c.id,id:s.id,mes:s.mes,ano:s.ano,dia:s.dia,av:s.avisoEm,cliente:c.cliente,tel:c.telefone,parc:nomeParc(c),valor:fmtN(s.valor),perc:percC(c),pago:!!s.pago,dp:s.dataPgto,desc:s.descricao}))),
+    ...manual.map(p=>({k:"m"+p.id,t:"m",id:p.id,mes:p.mes,ano:p.ano,dia:p.dia,av:p.avisoEm,cliente:p.cliente,tel:p.telefone,parc:p.temParceria?(p.coAdvogado||""):"",valor:fmtN(p.valor),perc:p.temParceria?fmtN(p.percCoAdv):0,pago:!!p.pago,dp:p.dataPgto,desc:p.descricao}))
   ];
   const ym=r=>r.ano*12+r.mes;
   const ord=(a,b)=>ym(a)-ym(b)||(a.dia||99)-(b.dia||99)||a.cliente.localeCompare(b.cliente);
@@ -542,6 +563,22 @@ function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,se
       :`Olá, ${nome}! Aqui é do escritório Juliana Savi Advocacia. Lembramos que o valor de ${fmt(r.valor)}${ref} vence em ${dt}. Qualquer dúvida, estamos à disposição.`;
     const dg=String(r.tel||"").replace(/\D/g,"");if(!dg){notify("Cliente sem telefone cadastrado.");return;}
     window.open(`https://wa.me/${dg.length<=11?"55"+dg:dg}?text=${encodeURIComponent(msg)}`,"_blank");
+    upd(r,x=>({...x,avisoEm:toISO0()}));
+  }
+  function upd(r,f){
+    if(r.t==="s")setContracts(p=>p.map(c=>c.id===r.cid?{...c,schedule:c.schedule.map(s=>s.id===r.id?f(s):s)}:c));
+    else setManual(p=>p.map(x=>x.id===r.id?f(x):x));
+  }
+  const [parcial,setParcial]=useState(null);
+  function salvarParcial(r){
+    const v=fmtN(parcial.v);
+    if(!(v>0)||v>=r.valor){notify("Informe um valor menor que o da parcela. Para o valor inteiro, use \"Dar baixa\".");return;}
+    const resto=Math.round((r.valor-v)*100)/100;const base=(r.desc||"Parcela").replace(/ \((parcial|saldo)\)$/,"");
+    const pg=x=>({...x,valor:v,pago:true,dataPgto:toISO0(),descricao:base+" (parcial)"});
+    const sd=x=>({...x,id:genId(),valor:resto,pago:false,dataPgto:"",descricao:base+" (saldo)"});
+    if(r.t==="s")setContracts(p=>p.map(c=>c.id===r.cid?{...c,schedule:c.schedule.flatMap(s=>s.id===r.id?[pg(s),sd(s)]:[s])}:c));
+    else setManual(p=>p.flatMap(x=>x.id===r.id?[pg(x),sd(x)]:[x]));
+    setParcial(null);
   }
   function tog(r){
     const f=x=>({...x,pago:!x.pago,dataPgto:!x.pago?toISO0():""});
@@ -572,7 +609,7 @@ function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,se
           {list.map(r=>(
             <tr key={r.k} style={{background:r.pago?T.successBg+"55":"transparent"}}>
               <td style={{...td,whiteSpace:"nowrap"}}>
-                <input type="number" min="1" max="31" value={r.dia||""} placeholder="dd" onChange={e=>setDia(r,e.target.value)} style={{width:38,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 4px",color:T.text,fontSize:12,textAlign:"center"}}/>
+                <input type="text" inputMode="numeric" maxLength={2} value={r.dia||""} placeholder="dd" onChange={e=>setDia(r,e.target.value)} style={{width:38,background:T.inp,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 4px",color:T.text,fontSize:12,textAlign:"center"}}/>
                 <span style={{color:T.muted}}>/{String(r.mes).padStart(2,"0")}/{r.ano}</span>
                 {!r.pago&&(()=>{const d=diasPara(r);return d!==null&&d>=0&&d<=7?<span title={d===0?"Vence hoje":`Vence em ${d} dia${d>1?"s":""}`} style={{marginLeft:6,color:T.warnText,display:"inline-flex",verticalAlign:"middle",alignItems:"center",gap:2,fontSize:11,fontWeight:700}}><BellRing size={14}/>{d===0?"hoje":d+"d"}</span>:null;})()}
               </td>
@@ -580,8 +617,8 @@ function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,se
               <td style={{...td,color:T.infoText}}>{r.parc||<span style={{color:T.muted}}>—</span>}</td>
               <td style={{...td,textAlign:"right",fontWeight:600}}>{fmt(r.valor)}</td>
               <td style={{...td,textAlign:"right",color:T.successText,fontWeight:600}}>{fmt(juli(r))}</td>
-              <td style={td}>{r.pago?<input type="date" value={r.dp||""} onChange={e=>setDp(r,e.target.value)} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 6px",color:T.text,fontSize:12}}/>:<span style={{color:atraso?T.warnText:T.muted,fontSize:12}}>{atraso?"em atraso":"pendente"}</span>}</td>
-              <td style={{...td,whiteSpace:"nowrap"}}>{!r.pago&&<button className="bhov" title="Avisar o cliente pelo WhatsApp" onClick={()=>avisar(r)} style={{background:"#22c55e22",border:"1px solid #22c55e44",borderRadius:6,padding:"4px 8px",color:"#16a34a",cursor:"pointer",marginRight:6,verticalAlign:"middle"}}><MessageCircle size={14}/></button>}<button className="bhov" onClick={()=>tog(r)} style={{background:r.pago?T.successBg:T.card2,color:r.pago?T.successText:T.accent,border:`1px solid ${T.border2}`,borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{r.pago?"✓ Pago":"Dar baixa"}</button></td>
+              <td style={td}>{parcial?.k===r.k?<span style={{display:"inline-flex",gap:4,alignItems:"center"}}><input autoFocus placeholder="Valor recebido" value={parcial.v} onChange={e=>setParcial({k:r.k,v:e.target.value})} onKeyDown={e=>{if(e.key==="Enter")salvarParcial(r);if(e.key==="Escape")setParcial(null);}} style={{width:110,background:T.inp,border:`1px solid ${T.accent}`,borderRadius:5,padding:"3px 6px",color:T.text,fontSize:12}}/><button className="bhov" onClick={()=>salvarParcial(r)} style={{background:T.successBg,color:T.successText,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>OK</button><button className="bhov" onClick={()=>setParcial(null)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:12}}>✕</button></span>:r.pago?<input type="date" value={r.dp||""} onChange={e=>setDp(r,e.target.value)} style={{background:T.inp,border:`1px solid ${T.border2}`,borderRadius:5,padding:"3px 6px",color:T.text,fontSize:12}}/>:<span style={{color:atraso?T.warnText:T.muted,fontSize:12}}>{atraso?"em atraso":"pendente"}{r.av&&<span style={{display:"block",fontSize:10,color:"#16a34a"}}>avisado em {fmtDt(r.av).slice(0,5)}</span>}</span>}</td>
+              <td style={{...td,whiteSpace:"nowrap"}}>{!r.pago&&<button className="bhov" title="Avisar o cliente pelo WhatsApp" onClick={()=>avisar(r)} style={{background:"#22c55e22",border:"1px solid #22c55e44",borderRadius:6,padding:"4px 8px",color:"#16a34a",cursor:"pointer",marginRight:6,verticalAlign:"middle"}}><MessageCircle size={14}/></button>}{!r.pago&&<button className="bhov" title="Registrar pagamento de parte do valor" onClick={()=>setParcial({k:r.k,v:""})} style={{background:T.card2,color:T.muted,border:`1px solid ${T.border2}`,borderRadius:6,padding:"4px 8px",fontSize:11,cursor:"pointer",marginRight:6}}>Parcial</button>}<button className="bhov" onClick={()=>tog(r)} style={{background:r.pago?T.successBg:T.card2,color:r.pago?T.successText:T.accent,border:`1px solid ${T.border2}`,borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{r.pago?"✓ Pago":"Dar baixa"}</button></td>
             </tr>
           ))}
         </tbody>
@@ -610,9 +647,9 @@ function PlanilhaPag({T,contracts,setContracts,manual,setManual,parceiros,mes,se
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:c}}>{fmt(v)}</div>
           </div>))}
       </div>
-      <Tabela list={vis}/>
+      {Tabela({list:vis})}
       <div style={{margin:"22px 0 8px",background:T.card2,borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,letterSpacing:"0.1em",color:T.muted,textAlign:"center"}}>ATRASADOS</div>
-      <Tabela list={atras} atraso/>
+      {Tabela({list:atras,atraso:true})}
       <div style={{margin:"22px 0 8px",fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Fluxo de entrada · {ano} (clique no mês)</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(72px,1fr))",gap:8}}>
         {mm.map((x,i)=>(
