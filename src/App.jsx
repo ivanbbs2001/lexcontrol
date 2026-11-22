@@ -437,7 +437,7 @@ function TabContratos({T,contracts,setContracts,clientesExtra,setClientesExtra,p
       setContracts(prev=>[{...newC(),id:genId(),nomeArquivo:file.name,advogado:p.advogado||ADV_PRINCIPAL,cliente:p.cliente||"",telefone:p.telefone||"",numeroProcesso:p.numeroProcesso||"",areaAtuacao:p.areaAtuacao||"Cível",valorTotal:p.valorTotal||"",formaPagamento:p.formaPagamento||"",totalParcelas:parseInt(p.totalParcelas)||1,valorParcela:p.valorParcela||"",prazos:p.prazos||"",observacoes:p.observacoes||""},...prev]);
     }catch(e){setError(e.message||"Erro.");}finally{setLoading(false);setLoadMsg("");}
   }
-  function saveNew(){if(!nd.cliente)return;const novo={...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")};setContracts(p=>[novo,...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});notify("Contrato cadastrado. Use os botões de documento na linha para gerar contrato, procuração ou declaração.");}
+  function saveNew(){if(!nd.cliente||!nd.cliente.trim()){notify("Informe o nome do cliente para salvar o contrato.");return;}const novo={...nd,id:genId(),dataUpload:new Date().toLocaleDateString("pt-BR")};setContracts(p=>[novo,...p]);setShowNew(false);setNd(newC());sA2({nome:"",pct:""});notify("Contrato cadastrado. Use os botões de documento na linha para gerar contrato, procuração ou declaração.");}
   function openM(c){setModal(c);setEditData({...c});setEditMode(false);sA({nome:"",pct:""});sS({mes:new Date().getMonth()+1,ano:new Date().getFullYear(),valor:"",descricao:"",pago:false});}
   function saveEdit(){setContracts(p=>p.map(c=>c.id===editData.id?{...editData}:c));setModal({...editData});setEditMode(false);}
   function updSt(id,status){setContracts(p=>p.map(c=>c.id===id?{...c,status}:c));if(modal?.id===id)setModal(s=>({...s,status}));}
