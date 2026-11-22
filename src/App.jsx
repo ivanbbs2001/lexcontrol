@@ -1163,8 +1163,19 @@ function TabRelatorio({T,contracts,manual,costs}){
    TAB CLIENTES — lista com edição e exclusão
 ═══════════════════════════════════════════════════════ */
 const ORIGENS=["Indicação de advogado","Indicação de cliente","Indicação de amigo/familiar","Instagram","Facebook","WhatsApp","Google / Site","Anúncio pago","Parceria / convênio","OAB / Assistência judiciária","Cliente antigo (retorno)","Outro"];
-const EMPTY_CLIENTE = ()=>({id:genId(),nome:"",cpf:"",telefone:"",email:"",endereco:"",cidade:"",origem:"",indicadoPor:"",observacoes:""});
+const EMPTY_CLIENTE = ()=>({id:genId(),nome:"",cpf:"",telefone:"",email:"",cep:"",endereco:"",numero:"",cidade:"",origem:"",indicadoPor:"",observacoes:""});
 
+const fmtCEP=v=>{const d=String(v||"").replace(/\D/g,"").slice(0,8);return d.length>5?d.slice(0,5)+"-"+d.slice(5):d;};
+const enderecoLinha=x=>[x?.endereco,x?.numero].filter(v=>v&&String(v).trim()).join(", ");
+async function buscarCEP(cep){
+  const d=String(cep||"").replace(/\D/g,"");
+  if(d.length!==8)return null;
+  const r=await fetch(`https://viacep.com.br/ws/${d}/json/`);
+  if(!r.ok)throw new Error("falha");
+  const j=await r.json();
+  if(j.erro)return false;
+  return{endereco:[j.logradouro,j.bairro].filter(Boolean).join(", "),cidade:`${j.localidade||""}${j.uf?" / "+j.uf:""}`};
+}
 function fmtCPF(v){
   const d=v.replace(/\D/g,"").slice(0,11);
   if(d.length<=3)return d;
@@ -1178,6 +1189,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
   const [modalCliente,setModalCliente]=useState(null);
   const [showForm,setShowForm]=useState(false);
   const [formCl,setFormCl]=useState(EMPTY_CLIENTE());
+  const [cepStatus,setCepStatus]=useState("");
   const [editId,setEditId]=useState(null);
 
   // ── Atualização WhatsApp ──────────────────────────────
@@ -1220,7 +1232,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
   const clientes=[...allKeys].map(k=>{
     const fromData=clientMap[k]||{nome:(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===k)?.nome||k,processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
     const extra=(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===k)||{};
-    return{...fromData,cpf:extra.cpf||"",email:extra.email||"",endereco:extra.endereco||"",cidade:extra.cidade||"",origem:extra.origem||"",indicadoPor:extra.indicadoPor||"",observacoes:extra.observacoes||"",idExtra:extra.id||null};
+    return{...fromData,cpf:extra.cpf||"",email:extra.email||"",cep:extra.cep||"",numero:extra.numero||"",endereco:extra.endereco||"",cidade:extra.cidade||"",origem:extra.origem||"",indicadoPor:extra.indicadoPor||"",observacoes:extra.observacoes||"",idExtra:extra.id||null};
   }).filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.nome.localeCompare(b.nome));
 
@@ -1231,7 +1243,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
   function openNew(){setEditId(null);setFormCl(EMPTY_CLIENTE());setShowForm(true);}
   function openEdit(cl){
     setEditId(cl.idExtra||cl.nome);
-    setFormCl({id:cl.idExtra||genId(),nome:cl.nome,cpf:cl.cpf||"",telefone:cl.telefone||"",email:cl.email||"",endereco:cl.endereco||"",cidade:cl.cidade||"",origem:cl.origem||"",indicadoPor:cl.indicadoPor||"",observacoes:cl.observacoes||""});
+    setFormCl({id:cl.idExtra||genId(),nome:cl.nome,cpf:cl.cpf||"",telefone:cl.telefone||"",email:cl.email||"",cep:cl.cep||"",numero:cl.numero||"",endereco:cl.endereco||"",cidade:cl.cidade||"",origem:cl.origem||"",indicadoPor:cl.indicadoPor||"",observacoes:cl.observacoes||""});
     setShowForm(true);
   }
   function saveForm(){
@@ -1328,7 +1340,12 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
             <Fld T={T} label="CPF" value={formCl.cpf} onChange={v=>setFormCl(d=>({...d,cpf:fmtCPF(v)}))} ph="000.000.000-00"/>
             <Fld T={T} label="Telefone / WhatsApp" value={formCl.telefone} onChange={v=>setFormCl(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
             <Fld T={T} label="E-mail" value={formCl.email} onChange={v=>setFormCl(d=>({...d,email:v}))} ph="email@exemplo.com"/>
-            <Fld T={T} label="Endereço" value={formCl.endereco} onChange={v=>setFormCl(d=>({...d,endereco:v}))} ph="Rua, número, bairro"/>
+            <div>
+              <Fld T={T} label="CEP" value={formCl.cep||""} onChange={v=>{const c=fmtCEP(v);setFormCl(d=>({...d,cep:c}));if(c.replace(/\D/g,"").length===8){setCepStatus("buscando");buscarCEP(c).then(r=>{if(r===null)return;if(r===false){setCepStatus("nao");return;}setFormCl(d=>fmtCEP(d.cep)===c?{...d,endereco:r.endereco,cidade:r.cidade}:d);setCepStatus("ok");}).catch(()=>setCepStatus("erro"));}else setCepStatus("");}} ph="00000-000"/>
+              <div style={{fontSize:10,marginTop:3,color:cepStatus==="nao"||cepStatus==="erro"?T.warnText:T.muted}}>{cepStatus==="buscando"?"Buscando endereço…":cepStatus==="nao"?"CEP não encontrado. Preencha o endereço manualmente.":cepStatus==="erro"?"Não foi possível consultar o CEP agora. Preencha manualmente.":cepStatus==="ok"?"Endereço preenchido pelo CEP":""}</div>
+            </div>
+            <Fld T={T} label="Endereço (rua e bairro)" value={formCl.endereco} onChange={v=>setFormCl(d=>({...d,endereco:v}))} ph="Rua, bairro"/>
+            <Fld T={T} label="Número" value={formCl.numero||""} onChange={v=>setFormCl(d=>({...d,numero:v}))} ph="Nº do imóvel"/>
             <Fld T={T} label="Cidade / UF" value={formCl.cidade} onChange={v=>setFormCl(d=>({...d,cidade:v}))} ph="Cascavel / PR"/>
             <Fld T={T} label="Como o cliente chegou?" value={formCl.origem||""} onChange={v=>setFormCl(d=>({...d,origem:v}))} options={[{v:"",l:"Não informado"},...ORIGENS]}/>
             {(formCl.origem||"").startsWith("Indicação")||formCl.origem==="Parceria / convênio"
@@ -1379,7 +1396,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
                       {cl.telefone?<PhoneLink phone={cl.telefone}/>:<span style={{color:T.muted}}>—</span>}
                     </td>
                     <td style={{padding:"10px 13px",fontSize:11,color:T.muted,maxWidth:160}}>
-                      {cl.endereco?<div title={cl.endereco+"\n"+cl.cidade}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cl.endereco}</div>{cl.cidade&&<div style={{fontSize:10}}>{cl.cidade}</div>}</div>:"—"}
+                      {cl.endereco?<div title={enderecoLinha(cl)+"\n"+cl.cidade}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{enderecoLinha(cl)}</div>{cl.cidade&&<div style={{fontSize:10}}>{cl.cidade}</div>}</div>:"—"}
                     </td>
                     <td style={{padding:"10px 13px"}}>{aList.length>0?<ABadge area={aList[0]}/>:<span style={{color:T.muted,fontSize:11}}>—</span>}</td>
                     <td style={{padding:"10px 13px",color:T.accent,fontWeight:700}}>{fmt(cl.valorTotal)}</td>
@@ -1408,7 +1425,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
         <Modal T={T} title={modalCliente.nome} sub={`${modalCliente.processos.length} processo${modalCliente.processos.length!==1?"s":""} · ${[...modalCliente.areas].join(", ")}`} onClose={()=>setModalCliente(null)} width={680}>
           <div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              {[["CPF",modalCliente.cpf||"—"],["Telefone",modalCliente.telefone||"—"],["E-mail",modalCliente.email||"—"],["Endereço",modalCliente.endereco?modalCliente.endereco+(modalCliente.cidade?" — "+modalCliente.cidade:""):"—"]].map(([l,v])=>(
+              {[["CPF",modalCliente.cpf||"—"],["Telefone",modalCliente.telefone||"—"],["E-mail",modalCliente.email||"—"],["Endereço",modalCliente.endereco?enderecoLinha(modalCliente)+(modalCliente.cidade?" — "+modalCliente.cidade:"")+(modalCliente.cep?" · CEP "+modalCliente.cep:""):"—"]].map(([l,v])=>(
                 <div key={l} style={{background:T.card2,borderRadius:8,padding:"10px 13px",border:`1px solid ${T.border}`}}>
                   <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:3}}>{l}</div>
                   <div style={{color:T.strong,fontSize:13}}>{l==="Telefone"&&modalCliente.telefone?<PhoneLink phone={modalCliente.telefone}/>:v}</div>
@@ -2098,7 +2115,7 @@ function FichaCliente({T,nome,contracts,manual,clientesExtra,audiencias,contatos
       <Sec titulo="Dados cadastrais">
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           <Dado l="CPF" v={extra.cpf}/><Dado l="Telefone" v={tel}/><Dado l="E-mail" v={extra.email}/>
-          <Dado l="Endereço" v={[extra.endereco,extra.cidade].filter(Boolean).join(" — ")}/>
+          <Dado l="Endereço" v={[enderecoLinha(extra),extra.cidade].filter(Boolean).join(" — ")}/>
           <Dado l="Como chegou" v={[extra.origem,extra.indicadoPor&&`(${extra.indicadoPor})`].filter(Boolean).join(" ")}/>
           {extra.observacoes&&<div style={{gridColumn:"1/-1"}}><Dado l="Observações" v={extra.observacoes}/></div>}
         </div>
