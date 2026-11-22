@@ -1232,7 +1232,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
   const clientes=[...allKeys].map(k=>{
     const fromData=clientMap[k]||{nome:(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===k)?.nome||k,processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
     const extra=(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===k)||{};
-    return{...fromData,cpf:extra.cpf||"",email:extra.email||"",cep:extra.cep||"",numero:extra.numero||"",endereco:extra.endereco||"",cidade:extra.cidade||"",origem:extra.origem||"",indicadoPor:extra.indicadoPor||"",observacoes:extra.observacoes||"",idExtra:extra.id||null};
+    return{...fromData,telefone:extra.telefone||fromData.telefone||"",cpf:extra.cpf||"",email:extra.email||"",cep:extra.cep||"",numero:extra.numero||"",endereco:extra.endereco||"",cidade:extra.cidade||"",origem:extra.origem||"",indicadoPor:extra.indicadoPor||"",observacoes:extra.observacoes||"",idExtra:extra.id||null};
   }).filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.nome.localeCompare(b.nome));
 
@@ -1256,6 +1256,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
     setShowForm(false);
   }
   async function delCliente(cl){
+    if(!cl.idExtra){notify("Este cliente vem de contratos ou pagamentos. Para removê-lo, exclua esses lançamentos.");return;}
     if(!await askConfirm(`Excluir "${cl.nome}" do cadastro?\n\nNota: contratos e pagamentos com este nome não serão excluídos.`))return;
     setClientesExtra(p=>p.filter(c=>c.id!==cl.idExtra));
     setModalCliente(null);
