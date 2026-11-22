@@ -1218,7 +1218,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
   // Mescla clientes cadastrados manualmente com os derivados
   const allKeys=new Set([...Object.keys(clientMap),...(clientesExtra||[]).map(c=>c.nome.trim().toLowerCase())]);
   const clientes=[...allKeys].map(k=>{
-    const fromData=clientMap[k]||{nome:"",processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
+    const fromData=clientMap[k]||{nome:(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===k)?.nome||k,processos:[],valorTotal:0,valorRecebido:0,areas:new Set(),status:{}};
     const extra=(clientesExtra||[]).find(c=>c.nome.trim().toLowerCase()===k)||{};
     return{...fromData,cpf:extra.cpf||"",email:extra.email||"",endereco:extra.endereco||"",cidade:extra.cidade||"",origem:extra.origem||"",indicadoPor:extra.indicadoPor||"",observacoes:extra.observacoes||"",idExtra:extra.id||null};
   }).filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase()))
@@ -1235,7 +1235,7 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
     setShowForm(true);
   }
   function saveForm(){
-    if(!formCl.nome)return;
+    if(!formCl.nome||!formCl.nome.trim()){notify("Informe o nome do cliente para salvar.");return;}
     if(editId){
       setClientesExtra(p=>p.some(c=>c.id===formCl.id)?p.map(c=>c.id===formCl.id?formCl:c):[...p,formCl]);
     } else {
