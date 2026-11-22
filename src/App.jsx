@@ -1184,7 +1184,7 @@ function fmtCPF(v){
   return d.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/,"$1.$2.$3-$4");
 }
 
-function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos,marcarContato}){
+function TabClientes({T,contracts,manual,costs,audiencias,clientesExtra,setClientesExtra,setContracts,setManual,setAudiencias,setContatos,contatos,marcarContato}){
   const [busca,setBusca]=useState("");
   const [modalCliente,setModalCliente]=useState(null);
   const [showForm,setShowForm]=useState(false);
@@ -1256,10 +1256,28 @@ function TabClientes({T,contracts,manual,clientesExtra,setClientesExtra,contatos
     setShowForm(false);
   }
   async function delCliente(cl){
-    if(!cl.idExtra){notify("Este cliente vem de contratos ou pagamentos. Para removê-lo, exclua esses lançamentos.");return;}
-    if(!await askConfirm(`Excluir "${cl.nome}" do cadastro?\n\nNota: contratos e pagamentos com este nome não serão excluídos.`))return;
-    setClientesExtra(p=>p.filter(c=>c.id!==cl.idExtra));
+    const key=(cl.nome||"").trim().toLowerCase();
+    const igual=x=>(x||"").trim().toLowerCase()===key;
+    const cts=contracts.filter(c=>igual(c.cliente));
+    const pgs=manual.filter(p=>igual(p.cliente));
+    const auds=(audiencias||[]).filter(a=>igual(a.cliente));
+    const cst=key.length>=3?(costs||[]).filter(c=>(c.descricao||"").toLowerCase().includes(key)):[];
+    const lista=(arr,f)=>arr.slice(0,8).map(f).join("\n")+(arr.length>8?`\n… e mais ${arr.length-8}`:"");
+    let msg=`Excluir "${cl.nome}" e todos os dados dele?\n`;
+    msg+=`\nContratos que serão apagados (${cts.length}):\n${cts.length?lista(cts,c=>`• ${c.areaAtuacao||"—"} · processo ${c.numeroProcesso||"—"} · ${c.status||""}`):"• nenhum"}`;
+    msg+=`\n\nPagamentos lançados manualmente que serão apagados (${pgs.length}):\n${pgs.length?lista(pgs,p=>`• ${p.descricao||"Pagamento"} · R$ ${p.valor||0} · ${String(p.mes).padStart(2,"0")}/${p.ano}`):"• nenhum"}`;
+    msg+=`\n\nAudiências que serão apagadas (${auds.length}).`;
+    msg+=`\n\nCustos que mencionam o nome (${cst.length}) — NÃO serão apagados, verifique:\n${cst.length?lista(cst,c=>`• ${c.descricao} · R$ ${c.valor||0}`):"• nenhum"}`;
+    msg+=`\n\nEsta ação não pode ser desfeita.`;
+    if(!await askConfirm(msg))return;
+    const sameCl=x=>igual(x.cliente);
+    setContracts(p=>p.filter(c=>!sameCl(c)));
+    setManual(p=>p.filter(x=>!sameCl(x)));
+    setAudiencias(p=>p.filter(a=>!sameCl(a)));
+    setClientesExtra(p=>p.filter(c=>(c.nome||"").trim().toLowerCase()!==key));
+    setContatos(p=>{const n={...p};delete n[key];return n;});
     setModalCliente(null);
+    notify(`"${cl.nome}" foi excluído.`);
   }
 
   // ── Funções de atualização WhatsApp ──────────────────
@@ -2536,7 +2554,7 @@ function App(){
           :tab==="contratos"    ?<TabContratos T={T} contracts={contracts} setContracts={setContracts} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} parceiros={parceiros}/>
           :tab==="pagamentos"   ?<TabPagamentos T={T} contracts={contracts} setContracts={setContracts} manual={manual} setManual={setManual} parceiros={parceiros}/>
           :tab==="custos"       ?<CostsTab T={T} contracts={contracts} manual={manual} costs={costs} setCosts={setCosts}/>
-          :tab==="clientes"     ?<TabClientes T={T} contracts={contracts} manual={manual} setTab={setTab} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} contatos={contatos} marcarContato={marcarContato}/>
+          :tab==="clientes"     ?<TabClientes T={T} contracts={contracts} manual={manual} costs={costs} audiencias={audiencias} setTab={setTab} clientesExtra={clientesExtra} setClientesExtra={setClientesExtra} setContracts={setContracts} setManual={setManual} setAudiencias={setAudiencias} setContatos={setContatos} contatos={contatos} marcarContato={marcarContato}/>
           :tab==="relatorio"    ?<TabRelatorio T={T} contracts={contracts} manual={manual} costs={costs}/>
           :tab==="configuracoes"?<TabConfig T={T} contracts={contracts} costs={costs} manual={manual} clientesExtra={clientesExtra} contatos={contatos} audiencias={audiencias} parceiros={parceiros} setParceiros={setParceiros} setAudiencias={setAudiencias} setContracts={setContracts} setCosts={setCosts} setManual={setManual} setClientesExtra={setClientesExtra} setContatos={setContatos}/>
           :<TabLinks T={T}/>
