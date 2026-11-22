@@ -94,6 +94,7 @@ Se não encontrar, deixe como string vazia.`;
 const genId=()=>Date.now()+Math.floor(Math.random()*9999);
 const fmt=v=>{const n=parseFloat(String(v??0).replace(/[^\d.,-]/g,"").replace(",","."));return isNaN(n)?(String(v)||"—"):n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});};
 const fmtN=v=>parseFloat(String(v??0).replace(/[^\d.,-]/g,"").replace(",","."))||0;
+const fmtTel=v=>{let d=String(v||"").replace(/\D/g,"");if(d.length>11&&d.startsWith("55"))d=d.slice(2);d=d.slice(0,11);if(!d)return "";if(d.length<=2)return "("+d;const r=d.slice(2);return `(${d.slice(0,2)}) ${r.length>4?r.slice(0,-4)+"-"+r.slice(-4):r}`;};
 const waLink=phone=>{const d=phone.replace(/\D/g,"");const num=d.length===11||d.length===10?"55"+d:d;return`https://wa.me/${num}`;};
 const ADV_PRINCIPAL = "Juliana";
 const LOGO_SRC=import.meta.env.BASE_URL+"logo.png";
@@ -142,7 +143,7 @@ const PhoneLink=({phone})=>{
   if(!phone)return <span style={{color:"inherit"}}>—</span>;
   return <a href={waLink(phone)} target="_blank" rel="noopener noreferrer" style={{color:"#25d366",fontWeight:500,display:"inline-flex",alignItems:"center",gap:4}}>
     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-    {phone}
+    {fmtTel(phone)}
   </a>;
 };
 
@@ -173,7 +174,7 @@ function CForm({T,data,set,nA,sA,nS,sS,parceiros=[]}){
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
         <Fld T={T} label="Advogado Responsável" value={data.advogado} onChange={v=>set(d=>({...d,advogado:v}))}/>
         <Fld T={T} label="Cliente" value={data.cliente} onChange={v=>set(d=>({...d,cliente:v}))}/>
-        <Fld T={T} label="Telefone / WhatsApp" value={data.telefone||""} onChange={v=>set(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
+        <Fld T={T} label="Telefone / WhatsApp" value={data.telefone||""} onChange={v=>set(d=>({...d,telefone:fmtTel(v)}))} ph="(00) 00000-0000"/>
         <Fld T={T} label="Nº do Processo" value={data.numeroProcesso||""} onChange={v=>set(d=>({...d,numeroProcesso:v}))} ph="0000000-00.0000.0.00.0000"/>
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Área de Atuação" value={data.areaAtuacao||"Cível"} onChange={v=>set(d=>({...d,areaAtuacao:v}))} options={AREAS}/></div>
         <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Advogado(a) parceiro(a) — usado nos documentos de parceria" value={data.parceiroId||""} onChange={v=>set(d=>({...d,parceiroId:v}))} options={[{v:"",l:"— sem parceria —"},...parceiros.filter(p=>p.ativo!==false||p.id===data.parceiroId).map(p=>({v:p.id,l:p.nome}))]}/></div>
@@ -275,7 +276,7 @@ function TabParcerias({T,parceiros,setParceiros,contracts}){
               <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:p.ativo===false?T.card2:T.successBg,color:p.ativo===false?T.muted:T.successText}}>{p.ativo===false?"INATIVO":"ATIVO"}</span>
             </div>
             <div style={{fontSize:12,color:T.muted,marginTop:8,lineHeight:1.5}}>
-              {p.telefone&&<div><Phone size={12} style={{verticalAlign:-1}}/> {p.telefone}</div>}
+              {p.telefone&&<div><Phone size={12} style={{verticalAlign:-1}}/> {fmtTel(p.telefone)}</div>}
               {p.email&&<div><Mail size={12} style={{verticalAlign:-1}}/> {p.email}</div>}
               {p.observacoes&&<div style={{marginTop:4}}>{p.observacoes}</div>}
               <div style={{marginTop:4,color:T.infoText}}>{usos(p.id)} contrato(s) vinculado(s)</div>
@@ -294,7 +295,7 @@ function TabParcerias({T,parceiros,setParceiros,contracts}){
           <Fld T={T} label="Sexo (flexiona o texto)" value={form.sexo} onChange={u("sexo")} options={[{v:"F",l:"Feminino"},{v:"M",l:"Masculino"}]}/>
           <Fld T={T} label="Estado civil" value={form.estadoCivil} onChange={u("estadoCivil")} options={CIVIS.map(c=>({v:c,l:c||"—"}))}/>
           <Fld T={T} label="Nº OAB/PR" value={form.oab} onChange={u("oab")} ph="63.702"/>
-          <Fld T={T} label="Telefone" value={form.telefone} onChange={u("telefone")}/>
+          <Fld T={T} label="Telefone" value={form.telefone} onChange={v=>u("telefone")(fmtTel(v))}/>
           <div style={{gridColumn:"1/-1"}}><Fld T={T} label="E-mail" value={form.email} onChange={u("email")}/></div>
           <div style={{gridColumn:"1/-1"}}><Fld T={T} type="textarea" label="Observações" value={form.observacoes} onChange={u("observacoes")}/></div>
         </div>
@@ -371,7 +372,7 @@ function GeradorDoc({T,modo,contrato,clientesExtra,setClientesExtra,parceiros=[]
         <Fld T={T} label="CEP" value={f.cep} onChange={u("cep")}/>
         <Fld T={T} label="Cidade" value={f.cidade} onChange={u("cidade")}/>
         <Fld T={T} label="UF" value={f.uf} onChange={u("uf")}/>
-        <Fld T={T} label="Telefone" value={f.telefone} onChange={u("telefone")}/>
+        <Fld T={T} label="Telefone" value={f.telefone} onChange={v=>u("telefone")(fmtTel(v))}/>
         <Fld T={T} label="E-mail" value={f.email} onChange={u("email")}/>
       </div>
       {modo==="contrato"&&<>
@@ -752,7 +753,7 @@ function TabPagamentos({T,contracts,setContracts,manual,setManual,parceiros}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
             <Fld T={T} label="Cliente" value={form.cliente} onChange={v=>setForm(d=>({...d,cliente:v}))}/>
             <Fld T={T} label="Advogado" value={form.advogado} onChange={v=>setForm(d=>({...d,advogado:v}))}/>
-            <Fld T={T} label="Telefone / WhatsApp" value={form.telefone} onChange={v=>setForm(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
+            <Fld T={T} label="Telefone / WhatsApp" value={form.telefone} onChange={v=>setForm(d=>({...d,telefone:fmtTel(v)}))} ph="(00) 00000-0000"/>
             <Fld T={T} label="Nº do Processo" value={form.numeroProcesso} onChange={v=>setForm(d=>({...d,numeroProcesso:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Fld T={T} label="Área de Atuação" value={form.areaAtuacao} onChange={v=>setForm(d=>({...d,areaAtuacao:v}))} options={AREAS}/></div>
             <Fld T={T} label="Descrição / Referência" value={form.descricao} onChange={v=>setForm(d=>({...d,descricao:v}))} ph="ex: Honorários, Parcela 2/3…"/>
@@ -1357,7 +1358,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
             <Fld T={T} label="Nome completo *" value={formCl.nome} onChange={v=>setFormCl(d=>({...d,nome:v}))}/>
             <Fld T={T} label="CPF" value={formCl.cpf} onChange={v=>setFormCl(d=>({...d,cpf:fmtCPF(v)}))} ph="000.000.000-00"/>
-            <Fld T={T} label="Telefone / WhatsApp" value={formCl.telefone} onChange={v=>setFormCl(d=>({...d,telefone:v}))} ph="(00) 00000-0000"/>
+            <Fld T={T} label="Telefone / WhatsApp" value={formCl.telefone} onChange={v=>setFormCl(d=>({...d,telefone:fmtTel(v)}))} ph="(00) 00000-0000"/>
             <Fld T={T} label="E-mail" value={formCl.email} onChange={v=>setFormCl(d=>({...d,email:v}))} ph="email@exemplo.com"/>
             <div>
               <Fld T={T} label="CEP" value={formCl.cep||""} onChange={v=>{const c=fmtCEP(v);setFormCl(d=>({...d,cep:c}));if(c.replace(/\D/g,"").length===8){setCepStatus("buscando");buscarCEP(c).then(r=>{if(r===null)return;if(r===false){setCepStatus("nao");return;}setFormCl(d=>fmtCEP(d.cep)===c?{...d,endereco:r.endereco,cidade:r.cidade}:d);setCepStatus("ok");}).catch(()=>setCepStatus("erro"));}else setCepStatus("");}} ph="00000-000"/>
@@ -1500,7 +1501,7 @@ Escreva APENAS o texto da mensagem, sem explicações adicionais.`;
             <div style={{overflowY:"auto",flex:1,padding:"18px 24px"}}>
               {/* info do cliente */}
               <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-                {modalAtualizar.telefone&&<div style={{background:T.successBg,border:`1px solid ${T.successText}44`,borderRadius:8,padding:"8px 12px",fontSize:12,color:T.successText}}>{modalAtualizar.telefone}</div>}
+                {modalAtualizar.telefone&&<div style={{background:T.successBg,border:`1px solid ${T.successText}44`,borderRadius:8,padding:"8px 12px",fontSize:12,color:T.successText}}>{fmtTel(modalAtualizar.telefone)}</div>}
                 {[...(modalAtualizar.areas||[])].filter(Boolean).map(a=><ABadge key={a} area={a}/>)}
               </div>
 
@@ -2133,7 +2134,7 @@ function FichaCliente({T,nome,contracts,manual,clientesExtra,audiencias,contatos
       </div>
       <Sec titulo="Dados cadastrais">
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <Dado l="CPF" v={extra.cpf}/><Dado l="Telefone" v={tel}/><Dado l="E-mail" v={extra.email}/>
+          <Dado l="CPF" v={extra.cpf}/><Dado l="Telefone" v={fmtTel(tel)}/><Dado l="E-mail" v={extra.email}/>
           <Dado l="Endereço" v={[enderecoLinha(extra),extra.cidade].filter(Boolean).join(" — ")}/>
           <Dado l="Como chegou" v={[extra.origem,extra.indicadoPor&&`(${extra.indicadoPor})`].filter(Boolean).join(" ")}/>
           {extra.observacoes&&<div style={{gridColumn:"1/-1"}}><Dado l="Observações" v={extra.observacoes}/></div>}
