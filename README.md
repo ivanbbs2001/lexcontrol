@@ -31,9 +31,9 @@ Settings → Pages → Source: **GitHub Actions**. Todo push na `main` publica a
 - **Clientes:** cadastro com CEP (preenche rua, bairro e cidade pelo ViaCEP; número do imóvel é campo próprio), telefone no padrão (00) 00000-0000, ficha e fila semanal de contato. Excluir cliente remove seus contratos, pagamentos manuais e audiências, após aviso com a lista do que será apagado. Custos com o nome do cliente na descrição são apenas listados, não apagados.
 - **Audiências:** calendário e exportação `.ics` com alertas 1 dia e 1 hora antes.
 - **Parcerias:** cadastro de advogados parceiros, vinculados aos contratos.
-- **Relatório:** resumos e exportações.
-- **Config.:** backup/restauração, importação, parceiros, chave da IA e tema.
-- **Links Úteis:** atalhos.
+- **Relatório:** fluxo de caixa por mês (entradas, saídas e saldo), com gráfico para os meses escolhidos e opção de impressão.
+- **Config.:** exportar e importar backup (JSON), exportar listas de clientes e de pagamentos em CSV, chave da IA e tema (Escuro, Claro, Industrial).
+- **Links Úteis:** atalhos para tribunais (TJ-PR, TRF-4, TRT-PR, STF, STJ, CNJ/PDPJ), INSS (Meu INSS, CNIS) e cálculo (CJF/SICOM), agrupados por categoria.
 
 ## Dados e backups
 - Documento principal: `workspaces/meu-escritorio/data/main` no Firestore. Sincronização por documento inteiro, com atraso de 1,5 s após cada alteração.
